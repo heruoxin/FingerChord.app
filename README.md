@@ -66,9 +66,9 @@
 
 手势在本机处理，不采集键盘文本或应用内容，不联网。设置保存在本机 UserDefaults。诊断默认关闭；手动开启后最多记录三分钟或 10,000 条触点、按钮及状态事件，保存在 `~/Library/Application Support/FingerChord/diagnostic.json`，不会自动上传。结束记录后释放内存缓冲；本地文件会保留，可自行删除。
 
-## 由 Astro One Shoot 打造
+## 由 GPT 6 Astra one-shot 构建
 
-此应用完全由 **Astro One Shoot** 打造。开发从下面这份需求开始，再通过实机测试完善。
+此应用由 **GPT 6 Astra** 模型以 **one-shot** 方式构建。开发从下面这份需求开始，再通过实机测试完善。
 
 <details>
 <summary>查看最初的 Prompt</summary>

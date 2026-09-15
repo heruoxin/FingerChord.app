@@ -60,9 +60,9 @@ The build prefers an installed Developer ID / Apple Development certificate, fal
 
 All recognition runs locally. No network requests, keyboard text collection or application-content recording. Settings use local UserDefaults. Diagnostics are off by default; an explicit recording captures touch coordinates, button states and status events for at most three minutes or 10,000 entries. The file is stored at `~/Library/Application Support/FingerChord/diagnostic.json` and never uploaded automatically. Recording buffers are released when capture stops; the file remains until deleted.
 
-## Created with Astro One Shoot
+## Built one-shot with GPT 6 Astra
 
-This application was created entirely with **Astro One Shoot**, starting from the [original prompt](docs/ORIGINAL_PROMPT.md), followed by testing and refinements on the actual Mac. The full original prompt is also included in the [Chinese README](README.md#由-astro-one-shoot-打造).
+This application was built **one-shot** with the **GPT 6 Astra** model, starting from the [original prompt](docs/ORIGINAL_PROMPT.md), followed by testing and refinements on the actual Mac. The full original prompt is also included in the [Chinese README](README.md#由-gpt-6-astra-one-shot-构建).
 
 ## License
 

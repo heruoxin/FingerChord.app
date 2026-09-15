@@ -1,6 +1,6 @@
 # Acknowledgments
 
-FingerChord was created entirely with **Astro One Shoot**, starting from the [original prompt](docs/ORIGINAL_PROMPT.md).
+FingerChord was built **one-shot** with the **GPT 6 Astra** model, starting from the [original prompt](docs/ORIGINAL_PROMPT.md).
 
 MultitouchSupport ABI declarations were informed by these public interface references. Gesture recognition and the application were implemented for this project:
 
