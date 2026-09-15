@@ -134,6 +134,7 @@ final class AppModel: ObservableObject {
         if action == .commandClick && !middleTap { return }
         if action == .closeWindow && !threePress { return }
         if action == .quitApplication && !fourPress { return }
+        HapticFeedback.perform()
         let name: String
         switch action {
         case .commandClick: name = "⌘ + 点击"

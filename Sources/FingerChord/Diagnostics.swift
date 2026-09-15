@@ -47,17 +47,22 @@ enum Diagnostics {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         _ = EventEmitter.send(.commandClick)
+        _ = EventEmitter.send(.commandClick)
+        _ = EventEmitter.send(.commandClick)
         _ = EventEmitter.send(.closeWindow)
         _ = EventEmitter.send(.quitApplication)
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.4))
         CGEvent.tapEnable(tap: tap, enable: false)
         CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         CFMachPortInvalidate(tap)
-        let expected: [(CGEventType, Int64)] = [(.leftMouseDown, 1), (.leftMouseUp, 1), (.keyDown, 13), (.keyUp, 13), (.keyDown, 12), (.keyUp, 12)]
+        let expected: [(CGEventType, Int64)] = [(.leftMouseDown, 1), (.leftMouseUp, 1),
+                                               (.leftMouseDown, 1), (.leftMouseUp, 1),
+                                               (.leftMouseDown, 1), (.leftMouseUp, 1),
+                                               (.keyDown, 13), (.keyUp, 13), (.keyDown, 12), (.keyUp, 12)]
         let valid = observed.count == expected.count && zip(observed, expected).allSatisfy {
             $0.0.0 == $0.1.0 && $0.0.1.contains(.maskCommand) && $0.0.2 == $0.1.1
         }
-        print("Event self-test: \(valid ? "PASS" : "FAIL"), \(observed.count)/6 events, all intercepted before apps")
+        print("Event self-test: \(valid ? "PASS" : "FAIL"), \(observed.count)/\(expected.count) events, all intercepted before apps")
         for value in observed { print("type=\(value.0.rawValue) flags=\(value.1.rawValue) detail=\(value.2)") }
         return valid ? 0 : 1
     }
