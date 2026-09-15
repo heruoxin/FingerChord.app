@@ -1,0 +1,15 @@
+name: macOS 27 app
+# Manual only: do not run untrusted pull requests on a personal self-hosted Mac.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: [self-hosted, macOS, macOS-27]
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/test.sh
+      - run: ./scripts/build.sh
+        env:
+          FINGERCHORD_SIGN_IDENTITY: '-'

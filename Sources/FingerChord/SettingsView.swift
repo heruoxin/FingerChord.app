@@ -10,6 +10,15 @@ private let accent = Color(
     })
 
 struct SettingsView: View {
+    private static let appIcon: NSImage = {
+        if let url = Bundle.main.url(forResource: "FingerChord", withExtension: "icns"),
+            let image = NSImage(contentsOf: url)
+        {
+            return image
+        }
+        return NSImage(named: NSImage.applicationIconName) ?? NSImage()
+    }()
+
     @ObservedObject var model: AppModel
     var hide: () -> Void
     var quit: () -> Void
@@ -33,7 +42,7 @@ struct SettingsView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
-                Image(nsImage: NSImage(named: NSImage.applicationIconName) ?? NSImage())
+                Image(nsImage: Self.appIcon)
                     .resizable().interpolation(.high).frame(width: 64, height: 64)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
@@ -90,6 +99,7 @@ struct SettingsView: View {
 
             HStack(alignment: .top, spacing: 16) {
                 TouchPreview(contacts: model.snapshot.contacts, pressed: model.snapshot.buttonDown)
+                    .id(model.language)
                     .frame(width: 192, height: 119)
                 VStack(alignment: .leading, spacing: 9) {
                     HStack {

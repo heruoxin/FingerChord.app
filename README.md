@@ -1,86 +1,95 @@
+<p align="center"><img src="Resources/Icon/FingerChord.png" width="112" alt="指间应用图标"></p>
+
 # 指间 · FingerChord
 
-仅供本机 macOS 27 使用的触摸板手势工具，原生 Swift / AppKit / SwiftUI，无第三方运行时依赖。
+**三个手势，留在指尖。** 为 macOS 27 打造的轻量触摸板工具。
 
-## 手势
+[English](README.en.md) · [GPLv3](LICENSE) · [更新记录](CHANGELOG.md)
 
-- 食指、无名指保持在触摸板上，在两者之间轻点中指：在当前光标处发送 ⌘ + 左键点击。
-- 三指接触时实际压下触摸板：发送 ⌘W。
-- 四指接触时实际压下触摸板：发送 ⌘Q。
+| 手势 | 动作 |
+| --- | --- |
+| 食指、无名指保持接触，轻点两指之间的中指 | ⌘ + 点击 |
+| 三指接触时，实际压下触摸板 | ⌘W · 关闭窗口 |
+| 四指接触时，实际压下触摸板 | ⌘Q · 退出应用 |
 
-系统提供的是触点位置，无法识别手指名称；第一个手势按“两侧触点保持稳定，中间新增触点轻触后抬起”识别。
+- 每个手势独立开关，成功识别时提供触觉反馈。
+- 实时触点预览和测试模式，方便确认手势。
+- 后台运行，无 Dock 图标、无菜单栏图标；再次打开 App 返回设置。
+- 支持登录时启动，以及简体中文、繁體中文、English，默认跟随系统。
+- 原生 Swift / AppKit / SwiftUI，无第三方运行时依赖、无网络请求。
 
-## App 行为
+## 预览
 
-首次运行打开设置并引导系统授权。关闭设置后继续后台运行，没有 Dock 图标或菜单栏图标。再次打开 App 显示设置。各手势开关即时生效并保存在本地。登录时启动使用系统 ServiceManagement 接口，默认关闭。
+<img src="docs/media/settings-zh-Hans.png" width="680" alt="指间设置：手势、触点测试、登录启动和语言选择">
+
+### 手势演示
+
+[![手势演示](docs/media/fingerchord-demo.gif)](docs/media/fingerchord-demo.mp4)
+
+[观看 MP4 视频](docs/media/fingerchord-demo.mp4)。演示录于初版，当前界面见上方截图。
 
 ## 使用
 
-1. 打开 `/Applications/FingerChord.app`（显示名称“指间”）。
-2. 在设置中分别点“去授权”，前往 **系统设置 → 隐私与安全性 → 辅助功能 / 输入监控**，允许“指间”。系统列表有时显示为 `FingerChord`。
-3. 如 macOS 提示退出并重新打开，请允许；再次打开 App 即可。状态变成“正在后台运行”后可使用手势。
-4. 勾选“测试模式”可以观察手势结果，此时不会发送点击、关闭窗口或退出应用。实时触摸板会显示手指位置和实际压下状态。
-5. 点击“隐藏并运行”或直接关窗口。再次双击 App 打开设置；“退出指间”完全停止程序。
+1. 将构建产物 `FingerChord.app` 放入「应用程序」，双击打开。
+2. 按提示在 **系统设置 → 隐私与安全性** 中允许「辅助功能」和「输入监控」。列表中可能显示「指间」或「FingerChord」。如系统要求重新打开，请照常操作。
+3. 状态显示「正在后台运行」后，在测试模式里尝试手势。
+4. 点击「隐藏并运行」或关闭窗口。再次打开 App 可调整设置、暂停或退出。
 
-第一种手势需要两侧手指先稳定约 80 ms，中指在两者之间轻触 25–260 ms 后抬起。移动或添加第四个触点会取消这次轻点。取消后，两侧手指重新稳定约 120 ms 即可继续轻点，无需全部抬手；成功后两侧手指可以继续保持接触，重复轻点中指。
+测试模式只显示结果并提供震动，不发送快捷键；隐藏设置后自动结束测试模式。登录启动由系统 `SMAppService` 管理，新安装默认关闭，可在设置中开启。
 
-三指和四指手势只响应物理按下；系统的“轻点来点按”不会触发 ⌘W / ⌘Q。按住不重复触发。快捷键发给当前应用，⌘ 点击发生在当前光标位置。手势开关开启时，来自触摸板的原生点击最多延后 80 ms，以对齐系统点击和较晚到达的硬件按钮值；未匹配手势的点击随后原样转发。外接鼠标不延后。系统的三指拖移、四指滑动等设置不会被修改。
+### 手势说明与兼容范围
 
-## 开机自启动
+- 中指轻点按触点的相对位置识别，系统无法直接辨认手指名称。先让两侧手指稳定，再轻点中间；两侧无需抬起即可连续使用。
+- 三指、四指需要**实际压下**，仅轻触不会发送 ⌘W / ⌘Q；按住不重复触发。快捷键作用于当前应用，⌘ 点击作用于当前光标位置。
+- 已在 **macOS 27.0 (26A428)、Apple Silicon、内置 Force Touch 触摸板**实测。其他触摸板、非标准键盘布局及未来系统版本尚未完成实机验证。
+- 使用系统私有触点接口，只支持 macOS 27；系统更新可能需要适配。系统手势设置不会被修改。
+- 开启手势时，触摸板原生点击最多延后 80 ms，以匹配较晚到达的物理按钮事件。未匹配的点击正常转发，外接鼠标不延后。
 
-在 App 设置中开启“开机自启动”，通过 `SMAppService.mainApp` 注册登录启动。如果显示需要系统批准，点“打开登录项”。关闭该开关即可取消。登录启动时已授权的 App 会隐藏运行；“暂停”状态也会保留。
+## Build
 
-## 开发
-
-要求本机 Xcode（含 Swift 6.2+）及代码签名证书，无网络依赖：
-
-```sh
-./scripts/test.sh       # 42 项手势状态机及点击配对测试
-./scripts/build.sh      # 构建、签名 dist/FingerChord.app
-./scripts/install.sh    # 构建、安装 /Applications/FingerChord.app 并打开设置
-```
-
-安装新构建前先退出旧 App。构建脚本自动选择本机 Developer ID / Apple Development 证书，也可以设置 `FINGERCHORD_SIGN_IDENTITY`。持续使用相同的 bundle ID、安装路径和签名身份，使系统授权在重新构建后保持稳定。产物只供本机运行，未进行公证和 App Store 分发。
-
-项目使用 Swift Package Manager，Xcode 可直接打开 `Package.swift`。
-
-## 诊断
+需要 **macOS 27、含 macOS 27 SDK 的 Xcode、Swift 6.2+**。下载源码后进入项目目录：
 
 ```sh
-/Applications/FingerChord.app/Contents/MacOS/FingerChord --probe
-/Applications/FingerChord.app/Contents/MacOS/FingerChord --probe --observe
-/Applications/FingerChord.app/Contents/MacOS/FingerChord --self-test-events
-/Applications/FingerChord.app/Contents/MacOS/FingerChord --self-test-login
+./scripts/test.sh             # 手势、翻译和生命周期单元测试
+./scripts/build.sh            # 构建并签名 dist/FingerChord.app
+./scripts/install.sh          # 构建、安装到 /Applications 并打开设置
+./scripts/package-release.sh  # 生成 ZIP 和 SHA-256 校验文件
 ```
 
-- `--probe`：检查系统、权限、设备连接；`--observe` 延长到 15 秒，输出触点帧数和旧框架按钮回调次数（当前内置 MTHID 设备该回调为零）。命令行进程的输入监控授权归属可能与正常打开 App 不同。
-- `open /Applications/FingerChord.app --args --settings --diagnose`：打开测试模式，记录最多三分钟的本地诊断并执行一次被拦截的事件自测；记录位于 `~/Library/Application Support/FingerChord/diagnostic.json`。运行中可用 `FingerChord --start-diagnostics` 开始新一轮记录。
-- `--self-test-events`：在已解锁并授权的环境中验证连续三次 ⌘ 点击以及 ⌘W、⌘Q 的十个合成事件。测试 event tap 会吸收测试事件，避免送到其他 App。
-- `--self-test-login`：在当前未开启登录启动时，实际注册再注销系统登录项，最后恢复关闭状态；已有登录启动设置时跳过。
-- 离屏界面检查：`FingerChord --render-settings /absolute/path/settings.png`。
-- 设置保存在 `local.heruoxin.FingerChord` 的 UserDefaults 域；单实例锁在 `~/Library/Application Support/FingerChord/instance.lock`。不记录键盘内容，不进行网络请求。
+安装前先从设置中退出旧版。Xcode 也可以直接打开 `Package.swift`。构建不下载第三方依赖。
 
-重连设备、睡眠唤醒和用户会话恢复会重新建立监听。授权刚开启但未收到触点时，可点“重新连接”，或退出重开。
+构建脚本优先使用本机 Developer ID / Apple Development 证书，无证书时使用 ad-hoc 签名。可通过 `FINGERCHORD_SIGN_IDENTITY` 指定身份，设为 `-` 强制 ad-hoc。保持安装路径、bundle ID 和签名身份不变，有助于保留系统权限；ad-hoc 重构建可能需要重新授权。本地产物**未公证**，不承诺在其他 Mac 上直接通过 Gatekeeper。
 
-## 实现依据
+[开发、诊断及验证记录](docs/DEVELOPMENT.md) · [参与贡献](CONTRIBUTING.md)
 
-- 系统 MultitouchSupport 私有框架提供触点帧，运行时加载并检查接口；仅面向当前系统，不承诺后续版本兼容。
-- 触点 ABI 参考 [OpenMultitouchSupport](https://github.com/Kyome22/OpenMultitouchSupport/blob/main/Framework/OpenMultitouchSupportXCF/OpenMTInternal.h) 和 [Hammerspoon touchdevice](https://github.com/asmagill/hs._asm.undocumented.touchdevice/blob/master/MultitouchSupport.h) 的接口声明；手势识别与 App 实现独立编写。
-- CoreGraphics event tap 拦截点击、发送合成事件；ServiceManagement 管理登录启动。
+## 隐私
 
-## 开发记录
+手势在本机处理，不采集键盘文本或应用内容，不联网。设置保存在本机 UserDefaults。诊断默认关闭；手动开启后最多记录三分钟或 10,000 条触点、按钮及状态事件，保存在 `~/Library/Application Support/FingerChord/diagnostic.json`，不会自动上传。结束记录后释放内存缓冲；本地文件会保留，可自行删除。
 
-- 2026-09-15：确认 macOS 27.0 (26A428)、Swift 6.4、内置 Apple Force Touch 触摸板和所需 MultitouchSupport 符号可用；初始化 Git。
-- 已通过 42 项自动化状态机测试、Release 构建、签名校验、内置触摸板启动及连接检查、设置页面离屏渲染检查；后台进程激活策略为 accessory（无 Dock）。系统登录项实际注册／注销测试通过（enabled → notRegistered），测试后保持关闭。
-- 实机 debug：当前内置 MTHID 触摸板不触发旧的 `MTRegisterButtonStateCallback`。改为 `IOHIDManager` 监听 Usage Page 9 / Usage 1 的物理按钮值，通过 IORegistry 父子关系匹配触点设备；实测三指拖移和轻点不会产生该按钮值。
-- 用户已确认测试模式中三个手势连续识别符合预期、三指拖移不误触发。已在已授权 App 内执行合成事件自测，六个事件及 Command 标记均通过，测试事件全部拦截。登录启动保持用户已开启的状态；重新登录后的启动行为尚未实测。
-- 按钮释放立即复位，不再依赖下一帧触点；设置显示累计识别次数。原生点击按设备配对拦截，避免外接鼠标串扰，并拦截中指手势可能附带的系统轻点。
+## 由 Astro One Shoot 打造
 
-### 2026-09-16 连续轻点与触觉反馈
+此应用完全由 **Astro One Shoot** 打造。开发从下面这份需求开始，再通过实机测试完善。
 
-- 修复手势取消后必须全部抬手才能恢复的问题：两侧手指稳定 120 ms 后重新就绪；中指长按、触点小幅移动和滚动结束后均可继续轻点。
-- 惯性滚动、其他鼠标的滚动和已拦截的拖动不再取消触摸板轻点。
-- 用本机失效记录回放，原版识别 0 次，修复版识别 8 次；新增对应状态回归测试。
-- 三个手势识别成功时通过系统触觉反馈接口请求一次即时震动，测试模式同样提供反馈。
-- App 内事件自测扩展为连续三次 ⌘ 点击和 ⌘W / ⌘Q，共十个事件，全部在到达其他 App 前吸收。
-- 用户实测确认：连续轻点正常，前后台均有震动；记录含 8 次连续中指轻点和 3 次后台三指／四指手势。
+<details>
+<summary>查看最初的 Prompt</summary>
+
+```text
+请从零开始为我们开发一个本地使用的小工具。运行环境仅需兼容当前 macOS 27。
+功能：全局侦听触摸板事件，帮我们实现自定义手势。
+目前手势仅有：
+1. 食指+无名指触碰在触摸板上时，轻点中指，模拟 CMD + 点击事件。
+2. 三指在触摸板按下，模拟 CMD + W。
+3. 四指在触摸板按下，模拟 CMD + Q。
+
+背景：BetterTouchTool 曾经有此功能，但是它在最新的 macOS 27 上面有其他兼容性问题，无法继续使用。
+本工具纯粹自用，只要在我们本地可以正常运行即可。
+请自行创建 Git，并且实时 commit。
+交付的最终产物应该是一个可用的 App，点击开始运行，运行时没有图标，没有 Dock 图标，没有顶栏图标。
+再次点击启动一个设置窗口，有所有手势的开关，以及开机自启动开关。
+```
+
+</details>
+
+## 许可证
+
+代码、原创 SVG 图标和文档采用 [GNU GPL v3.0](LICENSE)（`GPL-3.0-only`）。接口参考及其许可见 [致谢](ACKNOWLEDGMENTS.md)。
