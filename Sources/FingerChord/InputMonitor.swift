@@ -16,15 +16,19 @@ final class InputMonitor {
     static let eventMarker: Int64 = 0x46434F5244
     private let lock = NSLock()
     private var devices: [UInt: DeviceGestureState] = [:]
-    private var clickGate = ClickGate()
+    private var clickGates: [UInt64: ClickGate] = [:]
+    private var senders: Set<UInt64> = []
     private var options = GestureOptions()
     private var snapshot = MonitorSnapshot()
     // Mouse events and MultitouchSupport are delivered independently. Buffer button-down events
     // briefly so either delivery order produces the same result, without blocking the event tap.
-    private var bufferedClicks: [Int64: [CGEvent]] = [:]
+    private struct ClickKey: Hashable { let sender: UInt64; let button: Int64 }
+    private var bufferedClicks: [ClickKey: [CGEvent]] = [:]
+    private var clickGeneration = 0
     private var running = false
     private var eventTap: CFMachPort?
     private var eventSource: CFRunLoopSource?
+    private let hardwareButtons = HardwareButtonMonitor()
     private(set) var deviceCount = 0
     private(set) var error: String?
     var onAction: ((GestureAction) -> Void)?
@@ -38,7 +42,7 @@ final class InputMonitor {
         lock.withLock {
             options = value
             for key in Array(devices.keys) { devices[key]?.options = value }
-            clickGate.cancelPending()
+            for key in Array(clickGates.keys) { clickGates[key]?.cancelPending() }
         }
     }
 
@@ -86,19 +90,25 @@ final class InputMonitor {
             let message = String(cString: FCError())
             stop(); error = message; return false
         }
+        hardwareButtons.onButton = { [weak self] device, down in self?.receiveButton(device: device, down: down) }
+        guard hardwareButtons.start() else {
+            stop(); error = "无法监听触摸板物理按钮，请重新连接"; return false
+        }
         return true
     }
 
     func stop() {
         DiagnosticTrace.record("monitorStop")
         lock.withLock { running = false }
+        hardwareButtons.stop()
+        clickGeneration += 1
         FCStop() // Unregister + drain framework callbacks before releasing their context.
         if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source = eventSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         eventSource = nil; eventTap = nil; deviceCount = 0
         for events in bufferedClicks.values { replay(events) }
         bufferedClicks = [:]
-        lock.withLock { devices = [:]; clickGate.reset(); snapshot.contacts = []; snapshot.buttonDown = false }
+        lock.withLock { devices = [:]; clickGates = [:]; senders = []; snapshot.contacts = []; snapshot.buttonDown = false }
     }
 
     private func receiveFrame(device: UInt, contacts: [Contact]) {
@@ -110,7 +120,13 @@ final class InputMonitor {
             let result = state.frame(contacts, at: now)
             DiagnosticTrace.record("frame", ["device": device, "state": state.recognizer.debugState, "physical": result.physicalPress,
                                                "action": result.action?.rawValue ?? "none"])
-            if result.physicalPress { clickGate.physicalPress(result.action, at: now) }
+            let sender = FCSenderID(device)
+            if sender != 0 {
+                senders.insert(sender)
+                if result.physicalPress || result.action == .commandClick {
+                    clickGates[sender, default: ClickGate()].physicalPress(result.action, at: now)
+                }
+            }
             devices[device] = state
             snapshot.frames += 1; snapshot.lastFrame = now
             snapshot.contacts = devices.values.flatMap { $0.recognizer.contacts }
@@ -124,33 +140,56 @@ final class InputMonitor {
         DiagnosticTrace.record("button", ["device": device, "down": down])
         lock.withLock {
             guard running else { return }
-            // macOS delivers the button header BEFORE its contacts. Count fingers in the next
-            // frame, so pressing while a fourth finger lands cannot accidentally send Command-W.
+            // Resolve against the next contact frame to include a fourth finger landing
+            // with the press. The fallback below handles a stationary contact stream.
             if devices[device] == nil { devices[device] = DeviceGestureState() }
             devices[device]?.buttonHeader(isDown: down)
             if down { snapshot.physicalPresses += 1 }
+            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
         }
+        // A stationary finger or final release may have no following contact frame.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.012) { [weak self] in
+            self?.resolveButton(device: device)
+        }
+    }
+
+    private func resolveButton(device: UInt) {
+        let now = ProcessInfo.processInfo.systemUptime
+        let action: GestureAction? = lock.withLock {
+            guard running, var state = devices[device] else { return nil }
+            let result = state.resolvePendingButton(at: now)
+            devices[device] = state
+            if result.physicalPress {
+                let sender = FCSenderID(device)
+                if sender != 0 { clickGates[sender, default: ClickGate()].physicalPress(result.action, at: now) }
+            }
+            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
+            return result.action
+        }
+        if let action { deliver(action) }
     }
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             DiagnosticTrace.record("tapDisabled", ["type": type.rawValue])
-            lock.withLock { clickGate.reset(); for key in Array(devices.keys) { devices[key]?.reset() } }
+            lock.withLock { clickGates = [:]; for key in Array(devices.keys) { devices[key]?.reset() } }
             if let tap = eventTap, isRunning { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
         if event.getIntegerValueField(.eventSourceUserData) == Self.eventMarker {
             return Unmanaged.passUnretained(event)
         }
+        let sender = HIDEventInfo.senderID(event)
         if [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(type) {
-            DiagnosticTrace.record("mouse", ["type": type.rawValue, "flags": event.flags.rawValue])
+            DiagnosticTrace.record("mouse", ["type": type.rawValue, "sender": sender])
         }
         let now = ProcessInfo.processInfo.systemUptime
         let button: Int64 = (type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 0
+        let key = ClickKey(sender: sender, button: button)
         let isMouseButtonEvent = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
                                  .leftMouseDragged, .rightMouseDragged].contains(type)
-        if isMouseButtonEvent, bufferedClicks[button] != nil, let copy = event.copy() {
-            bufferedClicks[button]?.append(copy)
+        if isMouseButtonEvent, bufferedClicks[key] != nil, let copy = event.copy() {
+            bufferedClicks[key]?.append(copy)
             return nil
         }
         var deferClick = false
@@ -159,15 +198,17 @@ final class InputMonitor {
             switch type {
             case .leftMouseDown, .rightMouseDown:
                 snapshot.mouseClicks += 1
-                let result = clickGate.mouseDown(button: button, at: now)
+                let result = clickGates[sender, default: ClickGate()].mouseDown(button: button, at: now)
                 if !result.swallow {
-                    // Even the first touch frame can arrive after the mouse-down. A bounded
-                    // 25 ms delay also handles landing all fingers and pressing in one motion.
-                    deferClick = options.threeFingerPress || options.fourFingerPress
+                    // Measured on this Mac: HID switch values arrive up to 54 ms after CG down.
+                    // Only delay events from a known trackpad, never an unrelated mouse.
+                    deferClick = senders.contains(sender) && (options.middleTap || options.threeFingerPress || options.fourFingerPress)
                 }
                 return result.swallow
-            case .leftMouseUp, .rightMouseUp: return clickGate.mouseUp(button: button)
-            case .leftMouseDragged, .rightMouseDragged: return clickGate.shouldSwallowDrag(button: button)
+            case .leftMouseUp, .rightMouseUp: return clickGates[sender, default: ClickGate()].mouseUp(button: button)
+            case .leftMouseDragged, .rightMouseDragged:
+                for device in Array(devices.keys) where FCSenderID(device) == sender { devices[device]?.cancelTap() }
+                return clickGates[sender, default: ClickGate()].shouldSwallowDrag(button: button)
             case .scrollWheel:
                 for key in Array(devices.keys) { devices[key]?.cancelTap() }
                 return false
@@ -175,22 +216,27 @@ final class InputMonitor {
             }
         }
         if deferClick, let copy = event.copy() {
-            bufferedClicks[button] = [copy]
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) { [weak self] in self?.resolveBufferedClick(button: button) }
+            bufferedClicks[key] = [copy]
+            let generation = clickGeneration
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                guard let self, generation == self.clickGeneration else { return }
+                self.resolveBufferedClick(key: key)
+            }
             return nil
         }
         return swallow ? nil : Unmanaged.passUnretained(event)
     }
 
-    private func resolveBufferedClick(button: Int64) {
-        guard let events = bufferedClicks.removeValue(forKey: button) else { return }
+    private func resolveBufferedClick(key: ClickKey) {
+        guard let events = bufferedClicks.removeValue(forKey: key) else { return }
         let swallow = lock.withLock {
-            let result = clickGate.mouseDown(button: button, at: ProcessInfo.processInfo.systemUptime)
+            let result = clickGates[key.sender, default: ClickGate()].mouseDown(button: key.button, at: ProcessInfo.processInfo.systemUptime)
             if result.swallow && events.contains(where: { $0.type == .leftMouseUp || $0.type == .rightMouseUp }) {
-                _ = clickGate.mouseUp(button: button)
+                _ = clickGates[key.sender]?.mouseUp(button: key.button)
             }
             return result.swallow
         }
+        DiagnosticTrace.record("resolvedClick", ["sender": key.sender, "swallow": swallow, "events": events.count])
         if !swallow { replay(events) }
     }
 

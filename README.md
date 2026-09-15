@@ -24,7 +24,7 @@
 
 第一种手势需要两侧手指先稳定约 80 ms，中指在两者之间轻触 25–260 ms 后抬起。移动或添加第四个触点会取消这次轻点。抬起所有手指后可以重新尝试；成功后两侧手指可以继续保持接触，重复轻点中指。
 
-三指和四指手势只响应物理按下；系统的“轻点来点按”不会触发 ⌘W / ⌘Q。按住不重复触发。快捷键发给当前应用，⌘ 点击发生在当前光标位置。三指／四指开关开启时，普通鼠标按下会最多延后 25 ms，以对齐系统点击和触摸板原始帧；原有点击随后原样转发。系统的三指拖移、四指滑动等设置不会被修改。
+三指和四指手势只响应物理按下；系统的“轻点来点按”不会触发 ⌘W / ⌘Q。按住不重复触发。快捷键发给当前应用，⌘ 点击发生在当前光标位置。手势开关开启时，来自触摸板的原生点击最多延后 80 ms，以对齐系统点击和较晚到达的硬件按钮值；未匹配手势的点击随后原样转发。外接鼠标不延后。系统的三指拖移、四指滑动等设置不会被修改。
 
 ## 开机自启动
 
@@ -35,7 +35,7 @@
 要求本机 Xcode（含 Swift 6.2+）及代码签名证书，无网络依赖：
 
 ```sh
-./scripts/test.sh       # 33 项手势状态机及点击配对测试
+./scripts/test.sh       # 38 项手势状态机及点击配对测试
 ./scripts/build.sh      # 构建、签名 dist/FingerChord.app
 ./scripts/install.sh    # 构建、安装 /Applications/FingerChord.app 并打开设置
 ```
@@ -53,7 +53,8 @@
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --self-test-login
 ```
 
-- `--probe`：检查系统、权限、设备连接；`--observe` 延长到 15 秒，输出接收到的触点帧数和物理按键变化次数。
+- `--probe`：检查系统、权限、设备连接；`--observe` 延长到 15 秒，输出触点帧数和旧框架按钮回调次数（当前内置 MTHID 设备该回调为零）。命令行进程的输入监控授权归属可能与正常打开 App 不同。
+- `open /Applications/FingerChord.app --args --settings --diagnose`：打开测试模式，记录最多三分钟的本地诊断并执行一次被拦截的事件自测；记录位于 `~/Library/Application Support/FingerChord/diagnostic.json`。运行中可用 `FingerChord --start-diagnostics` 开始新一轮记录。
 - `--self-test-events`：在已解锁并授权的环境中验证 ⌘ 点击、⌘W、⌘Q 的六个合成事件。测试 event tap 会吸收测试事件，避免送到其他 App。
 - `--self-test-login`：在当前未开启登录启动时，实际注册再注销系统登录项，最后恢复关闭状态；已有登录启动设置时跳过。
 - 离屏界面检查：`FingerChord --render-settings /absolute/path/settings.png`。
@@ -70,5 +71,7 @@
 ## 开发记录
 
 - 2026-09-15：确认 macOS 27.0 (26A428)、Swift 6.4、内置 Apple Force Touch 触摸板和所需 MultitouchSupport 符号可用；初始化 Git。
-- 已通过 33 项自动化状态机测试、Release 构建、签名校验、内置触摸板启动及连接检查、设置页面离屏渲染检查；后台进程激活策略为 accessory（无 Dock）。系统登录项实际注册／注销测试通过（enabled → notRegistered），测试后保持关闭。
-- 当前实机验收限制：Mac 锁定且输入监控未授权，无法获取用户真实手指帧或完成快捷键的全流程验证。解锁并授权后，使用设置中的测试模式逐个验收三个手势。设置窗口的真实交互及重新登录启动行为尚需实机验证。
+- 已通过 38 项自动化状态机测试、Release 构建、签名校验、内置触摸板启动及连接检查、设置页面离屏渲染检查；后台进程激活策略为 accessory（无 Dock）。系统登录项实际注册／注销测试通过（enabled → notRegistered），测试后保持关闭。
+- 实机 debug：当前内置 MTHID 触摸板不触发旧的 `MTRegisterButtonStateCallback`。改为 `IOHIDManager` 监听 Usage Page 9 / Usage 1 的物理按钮值，通过 IORegistry 父子关系匹配触点设备；实测三指拖移和轻点不会产生该按钮值。
+- 用户已确认测试模式中三个手势连续识别符合预期、三指拖移不误触发。已在已授权 App 内执行合成事件自测，六个事件及 Command 标记均通过，测试事件全部拦截。登录启动保持用户已开启的状态；重新登录后的启动行为尚未实测。
+- 按钮释放立即复位，不再依赖下一帧触点；设置显示累计识别次数。原生点击按设备配对拦截，避免外接鼠标串扰，并拦截中指手势可能附带的系统轻点。

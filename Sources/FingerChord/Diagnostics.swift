@@ -26,6 +26,7 @@ enum Diagnostics {
 
     /// Tests our real event emitter while absorbing every tagged test event before applications.
     static func testEvents() -> Int32 {
+        observed = []
         guard AXIsProcessTrusted() else { print("Event self-test requires Accessibility"); return 1 }
         guard CGPreflightListenEventAccess() else { print("Event self-test requires Input Monitoring and an unlocked Mac; no events sent"); return 1 }
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]

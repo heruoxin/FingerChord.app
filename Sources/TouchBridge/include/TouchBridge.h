@@ -18,4 +18,7 @@ void FCStop(void);
 const char *FCError(void);
 int32_t FCDeviceCount(void);
 bool FCDevicesHealthy(void);
+// Match a HID mouse service to the exact trackpad whose service descends from it.
+uintptr_t FCDeviceForHIDService(uint32_t service);
+uint64_t FCSenderID(uintptr_t device);
 #endif

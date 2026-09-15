@@ -126,6 +126,32 @@ void FCStop(void) {
 }
 const char *FCError(void) { return errorText; }
 int32_t FCDeviceCount(void) { return activeCount; }
+uintptr_t FCDeviceForHIDService(uint32_t service) {
+    if (!service) return 0;
+    for (int32_t i = 0; i < activeCount; i++) {
+        io_registry_entry_t entry = getService(activeDevices[i]);
+        if (!entry) continue;
+        IOObjectRetain(entry);
+        while (entry) {
+            bool matches = IOObjectIsEqualTo(entry, service);
+            io_registry_entry_t parent = IO_OBJECT_NULL;
+            if (!matches) IORegistryEntryGetParentEntry(entry, kIOServicePlane, &parent);
+            IOObjectRelease(entry);
+            if (matches) return (uintptr_t)activeDevices[i];
+            entry = parent;
+        }
+    }
+    return 0;
+}
+uint64_t FCSenderID(uintptr_t device) {
+    // The caller owns a live callback/device state. Avoid reading activeDevices while
+    // FCStart is still appending devices and the first callback is already arriving.
+    if (!device || !getService) return 0;
+    uint64_t identifier = 0;
+    io_service_t service = getService((Device)device);
+    if (service) IORegistryEntryGetRegistryEntryID(service, &identifier);
+    return identifier;
+}
 bool FCDevicesHealthy(void) {
     if (!activeCount) return false;
     for (int32_t i = 0; i < activeCount; i++) {

@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         installMenu()
         if CommandLine.arguments.contains("--diagnose") { DiagnosticTrace.start() }
         model = AppModel()
+        if CommandLine.arguments.contains("--diagnose") { model.testMode = true }
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(showSettings), name: reopenName, object: nil)
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(beginDiagnostics), name: Notification.Name("local.FingerChord.beginDiagnostics"), object: nil)
         let center = NSWorkspace.shared.notificationCenter
@@ -37,6 +38,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         UserDefaults.standard.set(true, forKey: "hasLaunched")
         if !launched || CommandLine.arguments.contains("--settings") || !model.accessibility || !model.inputMonitoring {
             showSettings()
+        }
+        if CommandLine.arguments.contains("--diagnose") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self else { return }
+                self.model.monitor.stop()
+                let result = Diagnostics.testEvents()
+                DiagnosticTrace.record("eventSelfTest", ["passed": result == 0])
+                self.model.reconcile()
+            }
         }
     }
 

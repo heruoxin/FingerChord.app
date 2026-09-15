@@ -20,6 +20,14 @@ public struct DeviceGestureState {
     }
     public var hasPendingPress: Bool { pendingButton == true }
 
+    /// Hardware values arrive separately from contacts. If no new contact frame follows,
+    /// resolve against the latest fresh frame without inventing a touch update.
+    public mutating func resolvePendingButton(at time: Double) -> (action: GestureAction?, physicalPress: Bool) {
+        guard let down = pendingButton else { return (nil, false) }
+        pendingButton = nil
+        return (recognizer.buttonChanged(isDown: down, at: time), down)
+    }
+
     public mutating func frame(_ contacts: [Contact], at time: Double) -> (action: GestureAction?, physicalPress: Bool) {
         let pending = pendingButton
         pendingButton = nil
