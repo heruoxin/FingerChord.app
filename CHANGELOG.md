@@ -5,6 +5,7 @@
 - Original SVG icon, native app icon resources, and GPL-3.0-only licensing.
 - English, Simplified Chinese and Traditional Chinese; live language switching.
 - Improved dark appearance and a scrollable settings window for smaller screens.
+- Removed a potential lock-order deadlock while collecting diagnostic fields.
 - Invalidated pending callbacks across reconnects; bounded copied mouse events and diagnostic snapshots.
 - Explicit teardown of HID callbacks, event taps, timers and framework device references.
 - Diagnostic buffers release after stopping or reaching their duration / size limit.

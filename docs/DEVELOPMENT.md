@@ -20,6 +20,7 @@ The private touch ABI was checked against macOS 27.0 (26A428). A touch has a 96-
 - `FCStop` disconnects and drains callback sinks before unregistering callbacks, stopping devices and releasing the owned device array. The dynamic framework handles intentionally remain loaded for the process lifetime.
 - HID value callbacks are explicitly unregistered before unscheduling and closing their manager. CF event tap and run-loop source references are invalidated and released on stop.
 - Each pending click keeps at most 64 copied events, keyed by a known trackpad and button. Each batch has its own token so an old timeout cannot resolve a later click. Unknown mouse senders do not grow the gate cache.
+- Diagnostic fields are evaluated outside the trace lock to avoid reversing the monitor/trace lock order. A session generation rejects records still being prepared when a recording is stopped.
 - Timers and UI callbacks capture models weakly. Preview models do not start hardware monitoring or change stored preferences. Stopped diagnostics release their entries; at most one asynchronous snapshot is queued for writing.
 
 ## Local checks
@@ -89,7 +90,8 @@ Environment: macOS 27.0 (26A428), Apple Silicon, Swift 6.4, built-in Force Touch
 | Real hardware lifecycle stress | 100 / 100 starts and 100 / 100 monitor releases |
 | Diagnostic capacity / release stress | 10 full buffers bounded and released |
 | Event emission | 10 / 10 synthetic events, intercepted before other apps |
-| `leaks` after lifecycle stress | 0 leaks / 0 bytes; physical footprint 19.3 MB, peak 19.6 MB |
+| `leaks` after lifecycle stress | 0 leaks / 0 bytes; physical footprint 22.8 MB, peak 23.0 MB |
+| `leaks` with live settings and language switching | 0 leaks / 0 bytes |
 | Settings UI | English, Simplified / Traditional Chinese, light / dark and permission layouts inspected |
 | Existing preferences | All three gestures and the user's enabled login preference retained |
 

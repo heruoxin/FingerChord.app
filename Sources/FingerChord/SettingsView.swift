@@ -25,7 +25,7 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            content
+            content.id(model.language)
         }
         .frame(width: 680, height: Self.windowHeight(model))
         .background(Color(nsColor: .windowBackgroundColor))

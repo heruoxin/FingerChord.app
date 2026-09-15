@@ -171,8 +171,10 @@ final class AppModel: ObservableObject {
 
     func refreshLoginStatus() {
         let status = SMAppService.mainApp.status
-        loginEnabled = status == .enabled || status == .requiresApproval
-        loginNeedsApproval = status == .requiresApproval
+        let enabled = status == .enabled || status == .requiresApproval
+        let needsApproval = status == .requiresApproval
+        if loginEnabled != enabled { loginEnabled = enabled }
+        if loginNeedsApproval != needsApproval { loginNeedsApproval = needsApproval }
     }
 
     func setLoginEnabled(_ value: Bool) {

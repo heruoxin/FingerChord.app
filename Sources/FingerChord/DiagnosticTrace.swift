@@ -9,6 +9,7 @@ enum DiagnosticTrace {
         label: "local.FingerChord.diagnosticWriter", qos: .utility)
     private static var entries: [[String: Any]] = []
     private static var until: Double = 0
+    private static var generation: UInt64 = 0
     private static var saving = false
     private static var timer: Timer?
     static let capacity = 10000
@@ -26,12 +27,19 @@ enum DiagnosticTrace {
     }
 
     static func record(_ kind: String, _ fields: @autoclosure () -> [String: Any] = [:]) {
+        let session: UInt64? = lock.withLock {
+            guard ProcessInfo.processInfo.systemUptime < until, entries.count < capacity else { return nil }
+            return generation
+        }
+        guard let session else { return }
+        // Fields may read monitor state. Evaluate without the trace lock to avoid
+        // inverting the monitor → trace lock order used by hardware callbacks.
+        var entry = fields()
+        let now = ProcessInfo.processInfo.systemUptime
+        entry["event"] = kind
+        entry["time"] = now
         lock.withLock {
-            let now = ProcessInfo.processInfo.systemUptime
-            guard now < until, entries.count < capacity else { return }
-            var entry = fields()
-            entry["event"] = kind
-            entry["time"] = now
+            guard session == generation, now < until, entries.count < capacity else { return }
             entries.append(entry)
         }
     }
@@ -59,6 +67,7 @@ enum DiagnosticTrace {
         timer = nil
         let saved: [[String: Any]] = lock.withLock {
             until = 0
+            generation &+= 1
             let saved = entries
             entries = []
             return saved

@@ -124,7 +124,9 @@ enum Diagnostics {
         for _ in 0..<10 {
             autoreleasepool {
                 DiagnosticTrace.start()
-                for i in 0..<(DiagnosticTrace.capacity + 100) { DiagnosticTrace.record("capacityTest", ["index": i]) }
+                for i in 0..<(DiagnosticTrace.capacity + 100) {
+                    DiagnosticTrace.record("capacityTest", ["index": i, "count": DiagnosticTrace.bufferedEntryCount])
+                }
                 traceReleased = traceReleased && DiagnosticTrace.bufferedEntryCount == DiagnosticTrace.capacity
                 DiagnosticTrace.stop()
                 traceReleased = traceReleased && DiagnosticTrace.bufferedEntryCount == 0
