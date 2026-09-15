@@ -7,6 +7,9 @@ if CommandLine.arguments.contains("--probe") {
 if CommandLine.arguments.contains("--self-test-events") {
     exit(Diagnostics.testEvents())
 }
+if CommandLine.arguments.contains("--self-test-login") {
+    exit(Diagnostics.testLoginService())
+}
 if let index = CommandLine.arguments.firstIndex(of: "--render-settings"), CommandLine.arguments.count > index + 1 {
     exit(Diagnostics.renderSettings(to: CommandLine.arguments[index + 1]))
 }

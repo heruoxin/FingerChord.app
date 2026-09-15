@@ -3,6 +3,7 @@ import ApplicationServices
 import GestureCore
 import TouchBridge
 import SwiftUI
+import ServiceManagement
 
 enum Diagnostics {
     static var observed: [(CGEventType, CGEventFlags, Int64)] = []
@@ -79,5 +80,26 @@ enum Diagnostics {
         } catch { print(error); return 1 }
         model.shutdown()
         return 0
+    }
+
+    static func testLoginService() -> Int32 {
+        let service = SMAppService.mainApp
+        guard service.status == .notRegistered || service.status == .notFound else {
+            print("Login self-test skipped: existing user login preference is preserved (status \(service.status.rawValue))")
+            return 1
+        }
+        do {
+            try service.register()
+            let registered = service.status
+            try service.unregister()
+            let removed = service.status
+            let valid = (registered == .enabled || registered == .requiresApproval) && (removed == .notRegistered || removed == .notFound)
+            print("Login self-test: \(valid ? "PASS" : "FAIL"); registered=\(registered.rawValue), restored=\(removed.rawValue)")
+            return valid ? 0 : 1
+        } catch {
+            try? service.unregister()
+            print("Login self-test failed: \(error.localizedDescription); restored status=\(service.status.rawValue)")
+            return 1
+        }
     }
 }

@@ -50,10 +50,12 @@
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --probe
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --probe --observe
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --self-test-events
+/Applications/FingerChord.app/Contents/MacOS/FingerChord --self-test-login
 ```
 
 - `--probe`：检查系统、权限、设备连接；`--observe` 延长到 15 秒，输出接收到的触点帧数和物理按键变化次数。
 - `--self-test-events`：在已解锁并授权的环境中验证 ⌘ 点击、⌘W、⌘Q 的六个合成事件。测试 event tap 会吸收测试事件，避免送到其他 App。
+- `--self-test-login`：在当前未开启登录启动时，实际注册再注销系统登录项，最后恢复关闭状态；已有登录启动设置时跳过。
 - 离屏界面检查：`FingerChord --render-settings /absolute/path/settings.png`。
 - 设置保存在 `local.heruoxin.FingerChord` 的 UserDefaults 域；单实例锁在 `~/Library/Application Support/FingerChord/instance.lock`。不记录键盘内容，不进行网络请求。
 
@@ -68,5 +70,5 @@
 ## 开发记录
 
 - 2026-09-15：确认 macOS 27.0 (26A428)、Swift 6.4、内置 Apple Force Touch 触摸板和所需 MultitouchSupport 符号可用；初始化 Git。
-- 已通过 33 项自动化状态机测试、Release 构建、签名校验、内置触摸板启动及连接检查、设置页面离屏渲染检查；后台进程激活策略为 accessory（无 Dock）。
-- 当前实机验收限制：Mac 锁定且输入监控未授权，无法获取用户真实手指帧或完成快捷键的全流程验证。解锁并授权后，使用设置中的测试模式逐个验收三个手势。登录自启动的 UI 注册／注销和重新登录行为尚需实机验证。
+- 已通过 33 项自动化状态机测试、Release 构建、签名校验、内置触摸板启动及连接检查、设置页面离屏渲染检查；后台进程激活策略为 accessory（无 Dock）。系统登录项实际注册／注销测试通过（enabled → notRegistered），测试后保持关闭。
+- 当前实机验收限制：Mac 锁定且输入监控未授权，无法获取用户真实手指帧或完成快捷键的全流程验证。解锁并授权后，使用设置中的测试模式逐个验收三个手势。设置窗口的真实交互及重新登录启动行为尚需实机验证。
