@@ -32,19 +32,19 @@ public struct GestureRecognizer: Sendable {
     private var anchorsSince: Double = 0
     private var middle: Contact?
     private var middleSince: Double = 0
-    private var blockedUntilLift = false
+    private var awaitingStablePair = false
     private var lastTap: Double = -.infinity
 
     public init() {}
 
     public var debugState: String {
-        "contacts=\(contacts.count) down=\(buttonIsDown) blocked=\(blockedUntilLift) anchors=\(anchors.count) middle=\(middle?.id.description ?? "nil")"
+        "contacts=\(contacts.count) down=\(buttonIsDown) blocked=\(awaitingStablePair) anchors=\(anchors.count) middle=\(middle?.id.description ?? "nil")"
     }
 
     public mutating func reset() {
         contacts = []; anchors = []; middle = nil
         lastFrameTime = -.infinity; buttonIsDown = false
-        blockedUntilLift = false; lastTap = -.infinity
+        awaitingStablePair = false; lastTap = -.infinity
     }
 
     public func pressAction(at time: Double) -> GestureAction? {
@@ -58,13 +58,13 @@ public struct GestureRecognizer: Sendable {
     public mutating func buttonChanged(isDown: Bool, at time: Double) -> GestureAction? {
         guard buttonIsDown != isDown else { return nil }
         buttonIsDown = isDown
-        middle = nil; anchors = []; blockedUntilLift = true
+        middle = nil; anchors = []; awaitingStablePair = true
         guard isDown else { return nil }
         return pressAction(at: time)
     }
 
     public mutating func cancelTap() {
-        middle = nil; anchors = []; blockedUntilLift = true
+        middle = nil; anchors = []; awaitingStablePair = true
     }
 
     @discardableResult
@@ -76,10 +76,21 @@ public struct GestureRecognizer: Sendable {
         contacts = newContacts
         lastFrameTime = time
         if contacts.isEmpty {
-            anchors = []; middle = nil; blockedUntilLift = false
+            anchors = []; middle = nil; awaitingStablePair = false
             return nil
         }
-        guard options.middleTap, !buttonIsDown, !blockedUntilLift else { return nil }
+        guard options.middleTap, !buttonIsDown else { return nil }
+        if awaitingStablePair {
+            // Cancel only the current chord. Resting fingers should not have to leave the
+            // trackpad after a scroll, a long middle hold, or a small accidental movement.
+            guard contacts.count == 2 else { anchors = []; return nil }
+            if anchors.count != 2 || !anchorsAreStable(in: contacts) {
+                anchors = contacts.sorted { $0.x < $1.x }; anchorsSince = time
+            } else if time - anchorsSince >= 0.12 {
+                awaitingStablePair = false
+            }
+            return nil
+        }
 
         if let middle {
             guard anchorsAreStable(in: contacts) else { cancelTap(); return nil }

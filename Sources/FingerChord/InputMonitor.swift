@@ -207,10 +207,15 @@ final class InputMonitor {
                 return result.swallow
             case .leftMouseUp, .rightMouseUp: return clickGates[sender, default: ClickGate()].mouseUp(button: button)
             case .leftMouseDragged, .rightMouseDragged:
-                for device in Array(devices.keys) where FCSenderID(device) == sender { devices[device]?.cancelTap() }
-                return clickGates[sender, default: ClickGate()].shouldSwallowDrag(button: button)
+                let swallowed = clickGates[sender, default: ClickGate()].shouldSwallowDrag(button: button)
+                if !swallowed { cancelTap(sender: sender, reason: "drag") }
+                return swallowed
             case .scrollWheel:
-                for key in Array(devices.keys) { devices[key]?.cancelTap() }
+                // Momentum belongs to the previous scroll, even after the resting pair
+                // is ready for another chord. An external mouse must not cancel it either.
+                if event.getIntegerValueField(.scrollWheelEventMomentumPhase) == 0 {
+                    cancelTap(sender: sender, reason: "scroll")
+                }
                 return false
             default: return false
             }
@@ -225,6 +230,14 @@ final class InputMonitor {
             return nil
         }
         return swallow ? nil : Unmanaged.passUnretained(event)
+    }
+
+    // Caller holds the state lock.
+    private func cancelTap(sender: UInt64, reason: String) {
+        for device in Array(devices.keys) where sender != 0 && FCSenderID(device) == sender {
+            devices[device]?.cancelTap()
+            DiagnosticTrace.record("cancelTap", ["device": device, "reason": reason])
+        }
     }
 
     private func resolveBufferedClick(key: ClickKey) {

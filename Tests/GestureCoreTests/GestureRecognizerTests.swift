@@ -139,3 +139,49 @@ private func prepared() -> GestureRecognizer {
     #expect(r.contacts.isEmpty)
     #expect(r.pressAction(at: 1.14) == nil)
 }
+
+@Test func cancelledTapRearmsWithRestingPairWithoutLiftingEveryFinger() {
+    var r = prepared()
+    r.cancelTap()
+    #expect(r.update([left, right], at: 1.2) == nil)
+    #expect(r.update([left, right], at: 1.32) == nil)
+    r.update([left, right, middle], at: 1.34)
+    #expect(r.update([left, right], at: 1.44) == .commandClick)
+    r.update([left, right, middle], at: 1.56)
+    #expect(r.update([left, right], at: 1.66) == .commandClick)
+}
+
+@Test func longMiddleHoldDoesNotDisableLaterTaps() {
+    var r = prepared()
+    r.update([left, right, middle], at: 1.30)
+    r.update([left, right, middle], at: 1.40)
+    #expect(r.update([left, right], at: 1.45) == nil)
+    r.update([left, right], at: 1.57)
+    r.update([left, right, middle], at: 1.60)
+    #expect(r.update([left, right], at: 1.70) == .commandClick)
+}
+
+@Test func movingPairAndHeldButtonCannotRearmMiddleTap() {
+    var r = prepared()
+    r.cancelTap()
+    r.update([left, right], at: 1.20)
+    let moved = Contact(id: 1, x: 0.36, y: 0.40)
+    r.update([moved, right], at: 1.29)
+    r.update([moved, right, middle], at: 1.33)
+    #expect(r.update([moved, right], at: 1.43) == nil)
+    r.buttonChanged(isDown: true, at: 1.44)
+    r.update([left, right], at: 1.50)
+    r.update([left, right], at: 1.65)
+    r.update([left, right, middle], at: 1.7)
+    #expect(r.update([left, right], at: 1.8) == nil)
+}
+
+@Test func continuousScrollingCannotRearmMiddleTap() {
+    var r = prepared()
+    r.cancelTap()
+    r.update([left, right], at: 1.2)
+    r.cancelTap()
+    r.update([left, right], at: 1.3)
+    r.update([left, right, middle], at: 1.32)
+    #expect(r.update([left, right], at: 1.42) == nil)
+}
