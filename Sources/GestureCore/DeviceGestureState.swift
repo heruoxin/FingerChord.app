@@ -10,7 +10,14 @@ public struct DeviceGestureState {
         set { recognizer.options = newValue }
     }
     public init() {}
-    public mutating func buttonHeader(isDown: Bool) { pendingButton = isDown }
+    public mutating func buttonHeader(isDown: Bool) {
+        if !isDown {
+            // Releases may be the final header, with no following contact frame.
+            // Clear the latch now so a later press cannot overwrite the pending release.
+            _ = recognizer.buttonChanged(isDown: false, at: recognizer.lastFrameTime)
+        }
+        pendingButton = isDown
+    }
     public var hasPendingPress: Bool { pendingButton == true }
 
     public mutating func frame(_ contacts: [Contact], at time: Double) -> (action: GestureAction?, physicalPress: Bool) {

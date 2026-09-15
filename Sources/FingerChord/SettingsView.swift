@@ -67,7 +67,7 @@ struct SettingsView: View {
                     }
                     Toggle("测试模式：只显示识别结果", isOn: $model.testMode)
                         .font(.system(size: 11)).toggleStyle(.checkbox)
-                    Text(model.lastAction)
+                    Text(model.actionCount > 0 ? "\(model.lastAction) · 第 \(model.actionCount) 次" : model.lastAction)
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(accent)
                         .lineLimit(2).frame(height: 30, alignment: .topLeading)
                         .accessibilityIdentifier("lastAction")

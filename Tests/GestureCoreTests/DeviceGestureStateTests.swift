@@ -50,3 +50,18 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     first.buttonHeader(isDown: true)
     #expect(first.frame([three[0], three[1]], at: 1.01).action == nil)
 }
+
+@Test func releaseWithoutContactFrameRearmsNextPhysicalPress() {
+    var device = DeviceGestureState()
+    device.buttonHeader(isDown: true)
+    #expect(device.frame(three, at: 1).action == .closeWindow)
+    // A release-only header can be the last event of an interaction.
+    device.buttonHeader(isDown: false)
+    #expect(device.recognizer.buttonIsDown == false)
+    // The next interaction starts with another button header, before any contacts.
+    device.buttonHeader(isDown: true)
+    #expect(device.frame(three, at: 2).action == .closeWindow)
+    device.buttonHeader(isDown: false)
+    device.buttonHeader(isDown: true)
+    #expect(device.frame(four, at: 3).action == .quitApplication)
+}
