@@ -1,6 +1,12 @@
 import AppKit
 import TouchBridge
 
+if CommandLine.arguments.contains("--start-diagnostics") {
+    DistributedNotificationCenter.default().postNotificationName(Notification.Name("local.FingerChord.beginDiagnostics"), object: nil, userInfo: nil, deliverImmediately: true)
+    print(DiagnosticTrace.outputURL.path)
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--probe") {
     exit(Diagnostics.probe())
 }

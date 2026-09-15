@@ -45,6 +45,7 @@ final class InputMonitor {
     @discardableResult func start() -> Bool {
         if isRunning { return true }
         error = nil
+        DiagnosticTrace.record("monitorStart")
         guard AXIsProcessTrusted() else { error = "请先允许辅助功能权限"; return false }
         guard CGPreflightListenEventAccess() else { error = "请先允许输入监控权限"; return false }
         let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
@@ -68,6 +69,9 @@ final class InputMonitor {
         deviceCount = Int(FCStart({ device, data, count, context in
             guard let context, count >= 0 else { return }
             let monitor = Unmanaged<InputMonitor>.fromOpaque(context).takeUnretainedValue()
+            DiagnosticTrace.record("raw", ["device": device, "touches": UnsafeBufferPointer(start: data, count: Int(count)).map {
+                ["id": Double($0.identifier), "state": Double($0.state), "x": Double($0.x), "y": Double($0.y)]
+            }])
             let contacts = UnsafeBufferPointer(start: data, count: Int(count)).compactMap { touch -> Contact? in
                 guard (touch.state == 3 || touch.state == 4), touch.x.isFinite, touch.y.isFinite,
                       touch.x >= 0, touch.x <= 1, touch.y >= 0, touch.y <= 1 else { return nil }
@@ -86,6 +90,7 @@ final class InputMonitor {
     }
 
     func stop() {
+        DiagnosticTrace.record("monitorStop")
         lock.withLock { running = false }
         FCStop() // Unregister + drain framework callbacks before releasing their context.
         if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
@@ -103,6 +108,8 @@ final class InputMonitor {
             var state = devices[device] ?? DeviceGestureState()
             state.options = options
             let result = state.frame(contacts, at: now)
+            DiagnosticTrace.record("frame", ["device": device, "state": state.recognizer.debugState, "physical": result.physicalPress,
+                                               "action": result.action?.rawValue ?? "none"])
             if result.physicalPress { clickGate.physicalPress(result.action, at: now) }
             devices[device] = state
             snapshot.frames += 1; snapshot.lastFrame = now
@@ -114,6 +121,7 @@ final class InputMonitor {
     }
 
     private func receiveButton(device: UInt, down: Bool) {
+        DiagnosticTrace.record("button", ["device": device, "down": down])
         lock.withLock {
             guard running else { return }
             // macOS delivers the button header BEFORE its contacts. Count fingers in the next
@@ -126,12 +134,16 @@ final class InputMonitor {
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            DiagnosticTrace.record("tapDisabled", ["type": type.rawValue])
             lock.withLock { clickGate.reset(); for key in Array(devices.keys) { devices[key]?.reset() } }
             if let tap = eventTap, isRunning { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
         if event.getIntegerValueField(.eventSourceUserData) == Self.eventMarker {
             return Unmanaged.passUnretained(event)
+        }
+        if [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(type) {
+            DiagnosticTrace.record("mouse", ["type": type.rawValue, "flags": event.flags.rawValue])
         }
         let now = ProcessInfo.processInfo.systemUptime
         let button: Int64 = (type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 0
@@ -190,6 +202,7 @@ final class InputMonitor {
     }
 
     private func deliver(_ action: GestureAction) {
+        DiagnosticTrace.record("recognized", ["action": action.rawValue])
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isRunning else { return }
             self.onAction?(action)

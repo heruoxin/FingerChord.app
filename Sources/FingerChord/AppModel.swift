@@ -69,6 +69,8 @@ final class AppModel: ObservableObject {
         else if running { statusText = "正在后台运行" }
         else { statusText = monitor.error ?? "正在恢复监听…" }
         refreshLoginStatus()
+        DiagnosticTrace.record("status", ["running": running, "ax": ax, "input": input, "devices": deviceCount,
+                                           "frames": monitor.readSnapshot().frames, "status": statusText])
     }
 
     func reconnect() { monitor.stop(); reconcile() }
@@ -126,6 +128,8 @@ final class AppModel: ObservableObject {
     func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
 
     private func perform(_ action: GestureAction) {
+        DiagnosticTrace.record("perform", ["action": action.rawValue, "running": running, "enabled": enabled,
+                                            "suspended": suspended, "test": testMode && settingsVisible])
         guard running, enabled, !suspended else { return }
         if action == .commandClick && !middleTap { return }
         if action == .closeWindow && !threePress { return }

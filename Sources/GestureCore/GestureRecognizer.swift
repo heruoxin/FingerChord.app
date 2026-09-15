@@ -37,6 +37,10 @@ public struct GestureRecognizer: Sendable {
 
     public init() {}
 
+    public var debugState: String {
+        "contacts=\(contacts.count) down=\(buttonIsDown) blocked=\(blockedUntilLift) anchors=\(anchors.count) middle=\(middle?.id.description ?? "nil")"
+    }
+
     public mutating func reset() {
         contacts = []; anchors = []; middle = nil
         lastFrameTime = -.infinity; buttonIsDown = false

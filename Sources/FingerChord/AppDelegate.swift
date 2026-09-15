@@ -16,8 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         installMenu()
+        if CommandLine.arguments.contains("--diagnose") { DiagnosticTrace.start() }
         model = AppModel()
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(showSettings), name: reopenName, object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(beginDiagnostics), name: Notification.Name("local.FingerChord.beginDiagnostics"), object: nil)
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -60,12 +62,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func beginDiagnostics() { DiagnosticTrace.start() }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings(); return true
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func windowWillClose(_ notification: Notification) { model.hideSettings() }
     func applicationWillTerminate(_ notification: Notification) {
+        DiagnosticTrace.flush()
         model?.shutdown()
         DistributedNotificationCenter.default().removeObserver(self)
         for observer in observers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
