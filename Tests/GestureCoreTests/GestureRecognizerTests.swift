@@ -1,4 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import Testing
+
 @testable import GestureCore
 
 private let left = Contact(id: 1, x: 0.30, y: 0.40)
@@ -100,7 +102,7 @@ private func prepared() -> GestureRecognizer {
     r.options.threeFingerPress = false
     r.update([left, right, middle], at: 1)
     #expect(r.buttonChanged(isDown: true, at: 1.01) == nil)
-    r.buttonChanged(isDown: false, at: 1.02)
+    _ = r.buttonChanged(isDown: false, at: 1.02)
     r.update([left, right, middle, fourth], at: 1.03)
     #expect(r.buttonChanged(isDown: true, at: 1.04) == .quitApplication)
     r.options.fourFingerPress = false
@@ -133,7 +135,7 @@ private func prepared() -> GestureRecognizer {
 }
 @Test func resettingDropsPressedState() {
     var r = prepared()
-    r.buttonChanged(isDown: true, at: 1.13)
+    _ = r.buttonChanged(isDown: true, at: 1.13)
     r.reset()
     #expect(!r.buttonIsDown)
     #expect(r.contacts.isEmpty)
@@ -169,7 +171,7 @@ private func prepared() -> GestureRecognizer {
     r.update([moved, right], at: 1.29)
     r.update([moved, right, middle], at: 1.33)
     #expect(r.update([moved, right], at: 1.43) == nil)
-    r.buttonChanged(isDown: true, at: 1.44)
+    _ = r.buttonChanged(isDown: true, at: 1.44)
     r.update([left, right], at: 1.50)
     r.update([left, right], at: 1.65)
     r.update([left, right, middle], at: 1.7)

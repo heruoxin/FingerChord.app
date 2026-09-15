@@ -3,12 +3,12 @@ import AppKit
 
 // AppKit renders the SVG gradients without a third-party graphics dependency.
 guard CommandLine.arguments.count == 3,
-      let image = NSImage(contentsOfFile: CommandLine.arguments[1]),
-      let bitmap = NSBitmapImageRep(
+    let image = NSImage(contentsOfFile: CommandLine.arguments[1]),
+    let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024,
         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
-      let context = NSGraphicsContext(bitmapImageRep: bitmap)
+    let context = NSGraphicsContext(bitmapImageRep: bitmap)
 else {
     fputs("Usage: swift scripts/render-icon.swift input.svg output.png\n", stderr)
     exit(1)

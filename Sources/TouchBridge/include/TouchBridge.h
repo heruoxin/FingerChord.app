@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 #ifndef TOUCH_BRIDGE_H
 #define TOUCH_BRIDGE_H
 #include <stdint.h>

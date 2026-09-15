@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
 public struct Contact: Equatable, Sendable, Identifiable {
@@ -5,7 +6,11 @@ public struct Contact: Equatable, Sendable, Identifiable {
     public let x: Double
     public let y: Double
 
-    public init(id: Int32, x: Double, y: Double) { self.id = id; self.x = x; self.y = y }
+    public init(id: Int32, x: Double, y: Double) {
+        self.id = id
+        self.x = x
+        self.y = y
+    }
     func distance(to other: Contact) -> Double { hypot(x - other.x, y - other.y) }
 }
 
@@ -42,9 +47,13 @@ public struct GestureRecognizer: Sendable {
     }
 
     public mutating func reset() {
-        contacts = []; anchors = []; middle = nil
-        lastFrameTime = -.infinity; buttonIsDown = false
-        awaitingStablePair = false; lastTap = -.infinity
+        contacts = []
+        anchors = []
+        middle = nil
+        lastFrameTime = -.infinity
+        buttonIsDown = false
+        awaitingStablePair = false
+        lastTap = -.infinity
     }
 
     public func pressAction(at time: Double) -> GestureAction? {
@@ -58,34 +67,45 @@ public struct GestureRecognizer: Sendable {
     public mutating func buttonChanged(isDown: Bool, at time: Double) -> GestureAction? {
         guard buttonIsDown != isDown else { return nil }
         buttonIsDown = isDown
-        middle = nil; anchors = []; awaitingStablePair = true
+        middle = nil
+        anchors = []
+        awaitingStablePair = true
         guard isDown else { return nil }
         return pressAction(at: time)
     }
 
     public mutating func cancelTap() {
-        middle = nil; anchors = []; awaitingStablePair = true
+        middle = nil
+        anchors = []
+        awaitingStablePair = true
     }
 
     @discardableResult
     public mutating func update(_ newContacts: [Contact], at time: Double) -> GestureAction? {
         // A broken stream must never preserve a chord or use a stale finger count.
         if time < lastFrameTime || time - lastFrameTime > 0.25 {
-            anchors = []; middle = nil
+            anchors = []
+            middle = nil
         }
         contacts = newContacts
         lastFrameTime = time
         if contacts.isEmpty {
-            anchors = []; middle = nil; awaitingStablePair = false
+            anchors = []
+            middle = nil
+            awaitingStablePair = false
             return nil
         }
         guard options.middleTap, !buttonIsDown else { return nil }
         if awaitingStablePair {
             // Cancel only the current chord. Resting fingers should not have to leave the
             // trackpad after a scroll, a long middle hold, or a small accidental movement.
-            guard contacts.count == 2 else { anchors = []; return nil }
+            guard contacts.count == 2 else {
+                anchors = []
+                return nil
+            }
             if anchors.count != 2 || !anchorsAreStable(in: contacts) {
-                anchors = contacts.sorted { $0.x < $1.x }; anchorsSince = time
+                anchors = contacts.sorted { $0.x < $1.x }
+                anchorsSince = time
             } else if time - anchorsSince >= 0.12 {
                 awaitingStablePair = false
             }
@@ -93,7 +113,10 @@ public struct GestureRecognizer: Sendable {
         }
 
         if let middle {
-            guard anchorsAreStable(in: contacts) else { cancelTap(); return nil }
+            guard anchorsAreStable(in: contacts) else {
+                cancelTap()
+                return nil
+            }
             let elapsed = time - middleSince
             if contacts.count == 2, !contacts.contains(where: { $0.id == middle.id }) {
                 self.middle = nil
@@ -106,29 +129,37 @@ public struct GestureRecognizer: Sendable {
                 return nil
             }
             guard contacts.count == 3,
-                  let current = contacts.first(where: { $0.id == middle.id }),
-                  current.distance(to: middle) < 0.04, elapsed <= 0.26 else {
-                cancelTap(); return nil
+                let current = contacts.first(where: { $0.id == middle.id }),
+                current.distance(to: middle) < 0.04, elapsed <= 0.26
+            else {
+                cancelTap()
+                return nil
             }
             return nil
         }
 
         if contacts.count == 2 {
             if anchors.count != 2 || !anchorsAreStable(in: contacts) {
-                anchors = contacts.sorted { $0.x < $1.x }; anchorsSince = time
+                anchors = contacts.sorted { $0.x < $1.x }
+                anchorsSince = time
             }
         } else if contacts.count == 3, anchors.count == 2,
-                  time - anchorsSince >= 0.08, anchorsAreStable(in: contacts),
-                  let added = contacts.first(where: { c in !anchors.contains(where: { $0.id == c.id }) }) {
-            let left = anchors[0], right = anchors[1]
+            time - anchorsSince >= 0.08, anchorsAreStable(in: contacts),
+            let added = contacts.first(where: { c in !anchors.contains(where: { $0.id == c.id }) })
+        {
+            let left = anchors[0]
+            let right = anchors[1]
             // Both hands work. The new finger must be horizontally between the resting fingers.
             let span = right.x - left.x
             guard span >= 0.065, span <= 0.65,
-                  added.x > left.x + span * 0.13, added.x < right.x - span * 0.13,
-                  abs(added.y - (left.y + right.y) / 2) <= 0.30 else {
-                cancelTap(); return nil
+                added.x > left.x + span * 0.13, added.x < right.x - span * 0.13,
+                abs(added.y - (left.y + right.y) / 2) <= 0.30
+            else {
+                cancelTap()
+                return nil
             }
-            middle = added; middleSince = time
+            middle = added
+            middleSince = time
         } else {
             anchors = []
         }
@@ -136,8 +167,9 @@ public struct GestureRecognizer: Sendable {
     }
 
     private func anchorsAreStable(in touches: [Contact]) -> Bool {
-        anchors.count == 2 && anchors.allSatisfy { anchor in
-            touches.contains { $0.id == anchor.id && $0.distance(to: anchor) < 0.045 }
-        }
+        anchors.count == 2
+            && anchors.allSatisfy { anchor in
+                touches.contains { $0.id == anchor.id && $0.distance(to: anchor) < 0.045 }
+            }
     }
 }

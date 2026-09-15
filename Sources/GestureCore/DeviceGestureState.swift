@@ -1,13 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 
-/// MultitouchSupport reports button state in the frame header, before delivering contacts.
-/// Delay interpretation until those contacts arrive to count the fingers in the pressed frame.
+/// Physical HID switch values and contact frames arrive independently.
+/// Resolve a pending press against the next frame, with a timed fallback for stationary fingers.
 public struct DeviceGestureState {
     public private(set) var recognizer = GestureRecognizer()
     private var pendingButton: Bool?
     public var options: GestureOptions {
         get { recognizer.options }
-        set { recognizer.options = newValue }
+        set {
+            if recognizer.options != newValue { pendingButton = nil }
+            recognizer.options = newValue
+        }
     }
     public init() {}
     public mutating func buttonHeader(isDown: Bool) {
@@ -16,19 +20,26 @@ public struct DeviceGestureState {
             // Clear the latch now so a later press cannot overwrite the pending release.
             _ = recognizer.buttonChanged(isDown: false, at: recognizer.lastFrameTime)
         }
+        // HID and legacy callbacks can report the same edge. Do not erase an action
+        // already queued for the corresponding click when a duplicate arrives.
+        if isDown && (pendingButton == true || recognizer.buttonIsDown) { return }
         pendingButton = isDown
     }
     public var hasPendingPress: Bool { pendingButton == true }
 
     /// Hardware values arrive separately from contacts. If no new contact frame follows,
     /// resolve against the latest fresh frame without inventing a touch update.
-    public mutating func resolvePendingButton(at time: Double) -> (action: GestureAction?, physicalPress: Bool) {
+    public mutating func resolvePendingButton(at time: Double) -> (
+        action: GestureAction?, physicalPress: Bool
+    ) {
         guard let down = pendingButton else { return (nil, false) }
         pendingButton = nil
         return (recognizer.buttonChanged(isDown: down, at: time), down)
     }
 
-    public mutating func frame(_ contacts: [Contact], at time: Double) -> (action: GestureAction?, physicalPress: Bool) {
+    public mutating func frame(_ contacts: [Contact], at time: Double) -> (
+        action: GestureAction?, physicalPress: Bool
+    ) {
         let pending = pendingButton
         pendingButton = nil
         if pending != nil { recognizer.cancelTap() }
@@ -37,5 +48,8 @@ public struct DeviceGestureState {
         return (action, pending == true)
     }
     public mutating func cancelTap() { recognizer.cancelTap() }
-    public mutating func reset() { recognizer.reset(); pendingButton = nil }
+    public mutating func reset() {
+        recognizer.reset()
+        pendingButton = nil
+    }
 }

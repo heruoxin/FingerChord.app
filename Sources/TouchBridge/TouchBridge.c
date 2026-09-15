@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 #include "TouchBridge.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
@@ -36,6 +37,7 @@ static bool (*registerButton)(Device, RawButtonCallback, void *);
 static bool (*unregisterButton)(Device, RawButtonCallback);
 static void (*startDevice)(Device, int32_t);
 static void (*stopDevice)(Device);
+// Keep the framework loaded for the process lifetime; callback code must remain mapped.
 static void *framework;
 static CFArrayRef deviceList;
 static Device activeDevices[16];
@@ -71,9 +73,9 @@ static void onButton(Device device, uint32_t current, uint32_t previous, void *c
 
 static bool loadFramework(void) {
     if (!framework) framework = dlopen("/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport", RTLD_NOW | RTLD_LOCAL);
-    if (!framework) { snprintf(errorText, sizeof(errorText), "无法加载系统触摸板接口"); return false; }
+    if (!framework) { snprintf(errorText, sizeof(errorText), "error.framework"); return false; }
 #define LOAD(variable, symbol) do { *(void **)(&variable) = dlsym(framework, symbol); \
-    if (!variable) { snprintf(errorText, sizeof(errorText), "缺少系统接口：%s", symbol); return false; } } while (0)
+    if (!variable) { snprintf(errorText, sizeof(errorText), "error.symbol"); return false; } } while (0)
     LOAD(createList, "MTDeviceCreateList");
     LOAD(isOpaque, "MTDeviceIsOpaqueSurface");
     LOAD(isBuiltIn, "MTDeviceIsBuiltIn");
@@ -94,7 +96,7 @@ int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context)
     errorText[0] = 0;
     if (!loadFramework()) return -1;
     deviceList = createList();
-    if (!deviceList) { snprintf(errorText, sizeof(errorText), "未找到触摸板"); return 0; }
+    if (!deviceList) { snprintf(errorText, sizeof(errorText), "error.device"); return 0; }
     pthread_mutex_lock(&sinkLock);
     frameSink = frames; buttonSink = buttons; sinkContext = context;
     pthread_mutex_unlock(&sinkLock);
@@ -108,7 +110,10 @@ int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context)
         if (isRunning(device) && (isBuiltIn(device) || isOpaque(device))) { activeDevices[activeCount++] = device; }
         else { unregisterFrame(device, onFrame); unregisterButton(device, onButton); stopDevice(device); }
     }
-    if (!activeCount) snprintf(errorText, sizeof(errorText), "无法启动触摸板，请检查输入监控权限并重新连接触摸板");
+    if (!activeCount) {
+        snprintf(errorText, sizeof(errorText), "error.deviceStart");
+        FCStop();
+    }
     return activeCount;
 }
 
@@ -120,6 +125,7 @@ void FCStop(void) {
         unregisterFrame(activeDevices[i], onFrame);
         unregisterButton(activeDevices[i], onButton);
         stopDevice(activeDevices[i]);
+        activeDevices[i] = NULL;
     }
     activeCount = 0;
     if (deviceList) { CFRelease(deviceList); deviceList = NULL; }

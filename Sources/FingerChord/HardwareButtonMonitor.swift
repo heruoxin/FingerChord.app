@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import Foundation
 import IOKit.hid
 import TouchBridge
@@ -13,33 +14,45 @@ final class HardwareButtonMonitor {
         stop()
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, 0)
         self.manager = manager
-        IOHIDManagerSetDeviceMatching(manager, [kIOHIDPrimaryUsagePageKey: 1, kIOHIDPrimaryUsageKey: 2] as CFDictionary)
-        IOHIDManagerSetInputValueMatching(manager, [kIOHIDElementUsagePageKey: 9, kIOHIDElementUsageKey: 1] as CFDictionary)
-        IOHIDManagerRegisterInputValueCallback(manager, { context, result, _, value in
-            guard result == kIOReturnSuccess, let context else { return }
-            Unmanaged<HardwareButtonMonitor>.fromOpaque(context).takeUnretainedValue().receive(value)
-        }, Unmanaged.passUnretained(self).toOpaque())
+        IOHIDManagerSetDeviceMatching(
+            manager, [kIOHIDPrimaryUsagePageKey: 1, kIOHIDPrimaryUsageKey: 2] as CFDictionary)
+        IOHIDManagerSetInputValueMatching(
+            manager, [kIOHIDElementUsagePageKey: 9, kIOHIDElementUsageKey: 1] as CFDictionary)
+        IOHIDManagerRegisterInputValueCallback(
+            manager,
+            { context, result, _, value in
+                guard result == kIOReturnSuccess, let context else { return }
+                Unmanaged<HardwareButtonMonitor>.fromOpaque(context).takeUnretainedValue().receive(value)
+            }, Unmanaged.passUnretained(self).toOpaque())
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         let result = IOHIDManagerOpen(manager, 0)
         DiagnosticTrace.record("hidManager", ["open": result])
-        if result != kIOReturnSuccess { stop(); return false }
+        if result != kIOReturnSuccess {
+            stop()
+            return false
+        }
         return true
     }
 
     func stop() {
         if let manager {
-            IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+            IOHIDManagerRegisterInputValueCallback(manager, nil, nil)
+            IOHIDManagerUnscheduleFromRunLoop(
+                manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
             IOHIDManagerClose(manager, 0)
         }
-        manager = nil; down = [:]
+        manager = nil
+        down = [:]
     }
+
+    deinit { stop() }
 
     private func receive(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
         guard IOHIDElementGetUsagePage(element) == 9, IOHIDElementGetUsage(element) == 1 else { return }
         let hidDevice = IOHIDElementGetDevice(element)
         let device = FCDeviceForHIDService(IOHIDDeviceGetService(hidDevice))
-        guard device != 0 else { return } // Never combine an external mouse with resting fingers.
+        guard device != 0 else { return }  // Never combine an external mouse with resting fingers.
         let isDown = IOHIDValueGetIntegerValue(value) != 0
         guard isDown != (down[device] ?? false) else { return }
         down[device] = isDown

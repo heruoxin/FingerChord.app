@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import Testing
+
 @testable import GestureCore
 
-private let three = [Contact(id: 1, x: 0.2, y: 0.4), Contact(id: 2, x: 0.4, y: 0.4), Contact(id: 3, x: 0.6, y: 0.4)]
+private let three = [
+    Contact(id: 1, x: 0.2, y: 0.4), Contact(id: 2, x: 0.4, y: 0.4), Contact(id: 3, x: 0.6, y: 0.4),
+]
 private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 
 @Test func fourthFingerInPressedFrameWinsOverPreviousThreeFingerFrame() {
@@ -44,7 +48,8 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     #expect(device.frame(four, at: 1).action == nil)
 }
 @Test func separateTrackpadsNeverCombineFingers() {
-    var first = DeviceGestureState(), second = DeviceGestureState()
+    var first = DeviceGestureState()
+    var second = DeviceGestureState()
     _ = first.frame([three[0], three[1]], at: 1)
     _ = second.frame([three[2]], at: 1)
     first.buttonHeader(isDown: true)
@@ -89,10 +94,13 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 @Test func macOS27HardwareTimelineDistinguishesPressesFromThreeFingerDrag() {
     // Condensed from this Mac's 2026-09-15 capture. Mouse-down precedes the
     // hardware value by 27 ms / 18 ms. Dragging has no hardware transition.
-    var device = DeviceGestureState(), gate = ClickGate()
-    for (start, fingers, expected) in [(37.0, three, GestureAction.closeWindow),
-                                       (38.57, four, .quitApplication),
-                                       (40.0, three, .closeWindow)] {
+    var device = DeviceGestureState()
+    var gate = ClickGate()
+    for (start, fingers, expected) in [
+        (37.0, three, GestureAction.closeWindow),
+        (38.57, four, .quitApplication),
+        (40.0, three, .closeWindow),
+    ] {
         _ = device.frame(fingers, at: start)
         #expect(!gate.mouseDown(button: 0, at: start + 0.024).swallow)
         if start != 40 {
@@ -112,7 +120,8 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 }
 
 @Test func delayedHardwareValueStillSuppressesBufferedClick() {
-    var device = DeviceGestureState(), gate = ClickGate()
+    var device = DeviceGestureState()
+    var gate = ClickGate()
     _ = device.frame(four, at: 1)
     #expect(!gate.mouseDown(button: 0, at: 1.001).swallow)
     // The final acceptance capture included a 54 ms hardware delivery delay.
@@ -124,4 +133,22 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     gate.physicalPress(result.action, at: 1.067)
     #expect(gate.mouseDown(button: 0, at: 1.081).swallow)
     #expect(gate.mouseUp(button: 0) == true)
+}
+
+@Test func duplicateHardwareEdgeDoesNotCancelRecognizedPress() {
+    var device = DeviceGestureState()
+    device.buttonHeader(isDown: true)
+    #expect(device.frame(three, at: 1).action == .closeWindow)
+    device.buttonHeader(isDown: true)
+    let duplicate = device.frame(three, at: 1.01)
+    #expect(!duplicate.physicalPress)
+    #expect(duplicate.action == nil)
+}
+
+@Test func optionChangeDiscardsAnUndeliveredPress() {
+    var device = DeviceGestureState()
+    device.buttonHeader(isDown: true)
+    device.options.fourFingerPress = false
+    #expect(!device.hasPendingPress)
+    #expect(device.frame(three, at: 1).action == nil)
 }

@@ -1,7 +1,13 @@
-import SwiftUI
 import GestureCore
+// SPDX-License-Identifier: GPL-3.0-only
+import SwiftUI
 
-private let accent = Color(red: 0.12, green: 0.43, blue: 0.40)
+private let accent = Color(
+    nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.42, green: 0.79, blue: 0.71, alpha: 1)
+            : NSColor(srgbRed: 0.12, green: 0.43, blue: 0.40, alpha: 1)
+    })
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
@@ -9,16 +15,30 @@ struct SettingsView: View {
     var quit: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        ScrollView {
+            content
+        }
+        .frame(width: 680, height: Self.windowHeight(model))
+        .background(Color(nsColor: .windowBackgroundColor))
+        .tint(accent)
+    }
+
+    static func windowHeight(_ model: AppModel) -> CGFloat {
+        let permissionHeight: CGFloat = model.accessibility && model.inputMonitoring ? 0 : 120
+        let loginHeight: CGFloat = model.loginNeedsApproval || model.loginError != nil ? 44 : 0
+        return min(
+            720 + permissionHeight + loginHeight, (NSScreen.main?.visibleFrame.height ?? 900) - 60)
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
-                Image(systemName: "hand.draw.fill")
-                    .font(.system(size: 29, weight: .medium))
-                    .foregroundStyle(accent)
-                    .frame(width: 58, height: 58)
-                    .background(accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+                Image(nsImage: NSImage(named: NSImage.applicationIconName) ?? NSImage())
+                    .resizable().interpolation(.high).frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("指间").font(.system(size: 27, weight: .semibold))
-                    Text("三个手势，留在指尖。")
+                    Text(L10n.text("app.name")).font(.system(size: 27, weight: .semibold))
+                    Text(L10n.text("app.tagline"))
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -30,14 +50,19 @@ struct SettingsView: View {
 
             if !model.accessibility || !model.inputMonitoring {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("允许以下权限后，手势会自动开始工作。")
+                    Text(L10n.text("permissions.intro"))
                         .font(.system(size: 12, weight: .medium))
                     HStack(spacing: 12) {
-                        permission("辅助功能", granted: model.accessibility, action: model.requestAccessibility)
-                        permission("输入监控", granted: model.inputMonitoring, action: model.requestInputMonitoring)
+                        permission(
+                            L10n.text("permissions.accessibility"), granted: model.accessibility,
+                            action: model.requestAccessibility)
+                        permission(
+                            L10n.text("permissions.input"), granted: model.inputMonitoring,
+                            action: model.requestInputMonitoring)
                     }
-                    Text("在系统设置里打开“指间”的开关。如系统要求退出并重新打开，请照常操作。")
-                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text("permissions.detail"))
+                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(
+                            horizontal: false, vertical: true)
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -45,14 +70,22 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 9) {
-                sectionTitle("手势")
+                sectionTitle(L10n.text("gestures.title"))
                 VStack(spacing: 0) {
-                    gestureRow(symbol: "hand.point.up.left", title: "轻点中指", detail: "食指、无名指保持接触，轻点两指之间的中指", shortcut: "⌘ 点击", enabled: $model.middleTap)
+                    gestureRow(
+                        symbol: "hand.point.up.left", title: L10n.text("gesture.middle"),
+                        detail: L10n.text("gesture.middle.detail"), shortcut: L10n.text("shortcut.click"),
+                        enabled: $model.middleTap)
                     Divider().padding(.leading, 50)
-                    gestureRow(symbol: "hand.tap", title: "三指按下", detail: "三指接触时，实际压下触摸板", shortcut: "⌘ W", enabled: $model.threePress)
+                    gestureRow(
+                        symbol: "hand.tap", title: L10n.text("gesture.three"),
+                        detail: L10n.text("gesture.three.detail"), shortcut: "⌘ W", enabled: $model.threePress)
                     Divider().padding(.leading, 50)
-                    gestureRow(symbol: "hand.raised", title: "四指按下", detail: "四指接触时，实际压下触摸板", shortcut: "⌘ Q", enabled: $model.fourPress)
-                }.background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                    gestureRow(
+                        symbol: "hand.raised", title: L10n.text("gesture.four"),
+                        detail: L10n.text("gesture.four.detail"), shortcut: "⌘ Q", enabled: $model.fourPress)
+                }.background(
+                    Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
             }
 
             HStack(alignment: .top, spacing: 16) {
@@ -60,18 +93,21 @@ struct SettingsView: View {
                     .frame(width: 192, height: 119)
                 VStack(alignment: .leading, spacing: 9) {
                     HStack {
-                        Text("试试手势").font(.system(size: 12, weight: .semibold))
+                        Text(L10n.text("preview.title")).font(.system(size: 12, weight: .semibold))
                         Spacer()
-                        Text("\(model.snapshot.contacts.count) 个触点")
+                        Text(L10n.text("preview.contacts", model.snapshot.contacts.count))
                             .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
                     }
-                    Toggle("测试模式：只显示识别结果", isOn: $model.testMode)
+                    Toggle(L10n.text("preview.test"), isOn: $model.testMode)
                         .font(.system(size: 11)).toggleStyle(.checkbox)
-                    Text(model.actionCount > 0 ? "\(model.lastAction) · 第 \(model.actionCount) 次" : model.lastAction)
-                        .font(.system(size: 12, weight: .medium)).foregroundStyle(accent)
-                        .lineLimit(2).frame(height: 30, alignment: .topLeading)
-                        .accessibilityIdentifier("lastAction")
-                    Text("隐藏设置后自动结束测试模式。")
+                    Text(
+                        model.actionCount > 0
+                            ? L10n.text("preview.count", model.lastAction, model.actionCount) : model.lastAction
+                    )
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(accent)
+                    .lineLimit(2).frame(height: 30, alignment: .topLeading)
+                    .accessibilityIdentifier("lastAction")
+                    Text(L10n.text("preview.hint"))
                         .font(.system(size: 10)).foregroundStyle(.tertiary)
                 }.padding(.vertical, 4)
             }
@@ -79,38 +115,70 @@ struct SettingsView: View {
             VStack(spacing: 12) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("开机自启动").font(.system(size: 12, weight: .medium))
-                        Text("登录 Mac 后自动在后台运行")
+                        Text(L10n.text("login.title")).font(.system(size: 12, weight: .medium))
+                        Text(L10n.text("login.detail"))
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Toggle("开机自启动", isOn: Binding(get: { model.loginEnabled }, set: { model.setLoginEnabled($0) }))
-                        .labelsHidden().toggleStyle(.switch).controlSize(.small)
-                        .accessibilityLabel("开机自启动")
+                    Toggle(
+                        L10n.text("login.title"),
+                        isOn: Binding(get: { model.loginEnabled }, set: { model.setLoginEnabled($0) })
+                    )
+                    .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                    .accessibilityLabel(L10n.text("login.title"))
                 }
                 if model.loginNeedsApproval {
-                    HStack { Text("请在系统登录项中允许指间运行。").font(.system(size: 11)); Spacer(); Button("打开登录项", action: model.openLoginSettings) }
+                    HStack {
+                        Text(L10n.text("login.approval")).font(.system(size: 11))
+                        Spacer()
+                        Button(L10n.text("login.open"), action: model.openLoginSettings)
+                    }
                 }
-                if let error = model.loginError { Text(error).font(.system(size: 11)).foregroundStyle(.red) }
-            }.padding(14).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                if let error = model.loginError {
+                    Text(error).font(.system(size: 11)).foregroundStyle(.red)
+                }
+            }.padding(14).background(
+                Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+
+            HStack {
+                Text(L10n.text("language.title")).font(.system(size: 12, weight: .medium))
+                Spacer()
+                Picker(L10n.text("language.title"), selection: $model.language) {
+                    ForEach(AppLanguage.allCases) { language in Text(language.title).tag(language) }
+                }.labelsHidden().frame(width: 190)
+            }
 
             Divider()
             HStack {
-                Button("退出指间", action: quit).buttonStyle(.plain).foregroundStyle(.secondary)
-                Button("重新连接", action: model.reconnect).buttonStyle(.plain).foregroundStyle(.secondary).padding(.leading, 8)
+                Button(L10n.text("action.quit"), action: quit).buttonStyle(.plain).foregroundStyle(
+                    .secondary)
+                Button(L10n.text("action.reconnect"), action: model.reconnect).buttonStyle(.plain)
+                    .foregroundStyle(.secondary).padding(.leading, 8)
                 Spacer()
-                Button(model.enabled ? "暂停" : "开始运行") { model.enabled.toggle() }
-                    .buttonStyle(.bordered)
-                Button("隐藏并运行") { model.enabled = true; hide() }
-                    .buttonStyle(.borderedProminent).tint(accent)
-                    .disabled(!model.running)
+                Button(model.enabled ? L10n.text("action.pause") : L10n.text("action.start")) {
+                    model.enabled.toggle()
+                }
+                .buttonStyle(.bordered)
+                Button(L10n.text("action.hide")) {
+                    model.enabled = true
+                    hide()
+                }
+                .buttonStyle(.borderedProminent).tint(accent)
+                .disabled(!model.running)
             }.font(.system(size: 12))
-            Text("关闭窗口后继续运行 · 再次打开 App 返回设置 · 无 Dock 或菜单栏图标")
+            Text(
+                L10n.text(
+                    "about.version",
+                    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                        ?? "1.1.0")
+            )
+            .font(.system(size: 10)).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
+            Text(L10n.text("footer"))
                 .font(.system(size: 10)).foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(26)
-        .frame(width: 620)
+        .frame(width: 680)
         .background(Color(nsColor: .windowBackgroundColor))
         .tint(accent)
     }
@@ -125,21 +193,28 @@ struct SettingsView: View {
                 .foregroundStyle(granted ? accent : .secondary)
             Text(name).font(.system(size: 12))
             Spacer()
-            if !granted { Button("去授权", action: action).controlSize(.small).accessibilityLabel("授权\(name)") }
+            if !granted {
+                Button(L10n.text("permissions.allow"), action: action).controlSize(.small)
+                    .accessibilityLabel(L10n.text("permissions.allowNamed", name))
+            }
         }.frame(maxWidth: .infinity)
     }
 
-    private func gestureRow(symbol: String, title: String, detail: String, shortcut: String, enabled: Binding<Bool>) -> some View {
+    private func gestureRow(
+        symbol: String, title: String, detail: String, shortcut: String, enabled: Binding<Bool>
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 21)).foregroundStyle(accent).frame(width: 24)
             VStack(alignment: .leading, spacing: 5) {
                 Text(title).font(.system(size: 13, weight: .medium))
                 Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 6)
             Text(shortcut).font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary).frame(width: 59)
-                .padding(.vertical, 5).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
+                .padding(.vertical, 5).background(
+                    .primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
             Toggle(title, isOn: enabled).labelsHidden().toggleStyle(.switch).controlSize(.small)
                 .accessibilityLabel(title)
         }.padding(.horizontal, 14).padding(.vertical, 16)
@@ -159,17 +234,20 @@ private struct TouchPreview: View {
                 if contacts.isEmpty {
                     VStack(spacing: 5) {
                         Image(systemName: "rectangle.and.hand.point.up.left").font(.system(size: 21))
-                        Text("实时触摸板").font(.system(size: 10))
+                        Text(L10n.text("preview.live")).font(.system(size: 10))
                     }.foregroundStyle(accent.opacity(0.55))
                 }
                 // Enumerated ids avoid collisions between two connected trackpads.
                 ForEach(Array(contacts.enumerated()), id: \.offset) { _, contact in
                     Circle().fill(accent.opacity(0.85)).frame(width: 13, height: 13)
                         .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: 2))
-                        .position(x: 10 + contact.x * (geometry.size.width - 20),
-                                  y: 10 + (1 - contact.y) * (geometry.size.height - 20))
+                        .position(
+                            x: 10 + contact.x * (geometry.size.width - 20),
+                            y: 10 + (1 - contact.y) * (geometry.size.height - 20))
                 }
             }
-        }.accessibilityLabel("触摸板，\(contacts.count) 个触点\(pressed ? "，已按下" : "")")
+        }.accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                L10n.text("preview.ax", contacts.count) + (pressed ? L10n.text("preview.pressed") : ""))
     }
 }
