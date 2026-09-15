@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.isReleasedWhenClosed = false
             window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
             window.delegate = self
+            window.setContentSize(controller.view.fittingSize)
             window.center()
             self.window = window
         }

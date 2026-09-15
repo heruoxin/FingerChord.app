@@ -1,5 +1,6 @@
 #include "TouchBridge.h"
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
 #include <dlfcn.h>
 #include <stddef.h>
 #include <pthread.h>
@@ -26,6 +27,8 @@ typedef void (*RawFrameCallback)(Device, RawTouch *, int32_t, double, int32_t);
 typedef void (*RawButtonCallback)(Device, uint32_t, uint32_t, void *);
 static CFArrayRef (*createList)(void);
 static bool (*isOpaque)(Device);
+static bool (*isBuiltIn)(Device);
+static io_service_t (*getService)(Device);
 static bool (*isRunning)(Device);
 static bool (*registerFrame)(Device, RawFrameCallback);
 static bool (*unregisterFrame)(Device, RawFrameCallback);
@@ -73,6 +76,8 @@ static bool loadFramework(void) {
     if (!variable) { snprintf(errorText, sizeof(errorText), "缺少系统接口：%s", symbol); return false; } } while (0)
     LOAD(createList, "MTDeviceCreateList");
     LOAD(isOpaque, "MTDeviceIsOpaqueSurface");
+    LOAD(isBuiltIn, "MTDeviceIsBuiltIn");
+    LOAD(getService, "MTDeviceGetService");
     LOAD(isRunning, "MTDeviceIsRunning");
     LOAD(registerFrame, "MTRegisterContactFrameCallback");
     LOAD(unregisterFrame, "MTUnregisterContactFrameCallback");
@@ -95,11 +100,12 @@ int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context)
     pthread_mutex_unlock(&sinkLock);
     for (CFIndex i = 0; i < CFArrayGetCount(deviceList) && activeCount < 16; i++) {
         Device device = (Device)CFArrayGetValueAtIndex(deviceList, i);
-        if (!device || !isOpaque(device)) continue; // Exclude Magic Mouse and non-trackpad surfaces.
+        if (!device) continue;
         if (!registerFrame(device, onFrame)) continue;
         if (!registerButton(device, onButton, NULL)) { unregisterFrame(device, onFrame); continue; }
         startDevice(device, 0);
-        if (isRunning(device)) { activeDevices[activeCount++] = device; }
+        // Opaque-surface information is populated by MTDeviceStart, not MTDeviceCreateList.
+        if (isRunning(device) && (isBuiltIn(device) || isOpaque(device))) { activeDevices[activeCount++] = device; }
         else { unregisterFrame(device, onFrame); unregisterButton(device, onButton); stopDevice(device); }
     }
     if (!activeCount) snprintf(errorText, sizeof(errorText), "无法启动触摸板，请检查输入监控权限并重新连接触摸板");
@@ -120,3 +126,14 @@ void FCStop(void) {
 }
 const char *FCError(void) { return errorText; }
 int32_t FCDeviceCount(void) { return activeCount; }
+bool FCDevicesHealthy(void) {
+    if (!activeCount) return false;
+    for (int32_t i = 0; i < activeCount; i++) {
+        io_string_t path;
+        io_service_t service = getService(activeDevices[i]);
+        // MTDeviceIsAlive uses a legacy driver request that returns false on this Mac's
+        // MTHID device. Query whether its registry service still exists instead.
+        if (!isRunning(activeDevices[i]) || !service || IORegistryEntryGetPath(service, kIOServicePlane, path) != KERN_SUCCESS) return false;
+    }
+    return true;
+}

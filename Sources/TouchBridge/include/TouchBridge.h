@@ -17,4 +17,5 @@ int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context)
 void FCStop(void);
 const char *FCError(void);
 int32_t FCDeviceCount(void);
+bool FCDevicesHealthy(void);
 #endif

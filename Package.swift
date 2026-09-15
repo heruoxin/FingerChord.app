@@ -7,7 +7,7 @@ let package = Package(
     products: [.executable(name: "FingerChord", targets: ["FingerChord"])],
     targets: [
         .target(name: "GestureCore"),
-        .target(name: "TouchBridge", linkerSettings: [.linkedFramework("CoreFoundation")]),
+        .target(name: "TouchBridge", linkerSettings: [.linkedFramework("CoreFoundation"), .linkedFramework("IOKit")]),
         .executableTarget(name: "FingerChord", dependencies: ["GestureCore", "TouchBridge"],
                           linkerSettings: [.linkedFramework("AppKit"), .linkedFramework("ServiceManagement")]),
         .testTarget(name: "GestureCoreTests", dependencies: ["GestureCore"])

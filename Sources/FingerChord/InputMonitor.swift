@@ -15,10 +15,13 @@ struct MonitorSnapshot {
 final class InputMonitor {
     static let eventMarker: Int64 = 0x46434F5244
     private let lock = NSLock()
-    private var recognizers: [UInt: GestureRecognizer] = [:]
+    private var devices: [UInt: DeviceGestureState] = [:]
     private var clickGate = ClickGate()
     private var options = GestureOptions()
     private var snapshot = MonitorSnapshot()
+    // Mouse events and MultitouchSupport are delivered independently. Buffer button-down events
+    // briefly so either delivery order produces the same result, without blocking the event tap.
+    private var bufferedClicks: [Int64: [CGEvent]] = [:]
     private var running = false
     private var eventTap: CFMachPort?
     private var eventSource: CFRunLoopSource?
@@ -28,12 +31,13 @@ final class InputMonitor {
 
     var isRunning: Bool { lock.withLock { running } }
     var isEventTapEnabled: Bool { eventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false }
+    var devicesHealthy: Bool { FCDevicesHealthy() }
     func readSnapshot() -> MonitorSnapshot { lock.withLock { snapshot } }
 
     func setOptions(_ value: GestureOptions) {
         lock.withLock {
             options = value
-            for key in Array(recognizers.keys) { recognizers[key]?.options = value }
+            for key in Array(devices.keys) { devices[key]?.options = value }
             clickGate.cancelPending()
         }
     }
@@ -87,40 +91,42 @@ final class InputMonitor {
         if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source = eventSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         eventSource = nil; eventTap = nil; deviceCount = 0
-        lock.withLock { recognizers = [:]; clickGate.reset(); snapshot.contacts = []; snapshot.buttonDown = false }
+        for events in bufferedClicks.values { replay(events) }
+        bufferedClicks = [:]
+        lock.withLock { devices = [:]; clickGate.reset(); snapshot.contacts = []; snapshot.buttonDown = false }
     }
 
     private func receiveFrame(device: UInt, contacts: [Contact]) {
         let now = ProcessInfo.processInfo.systemUptime
         let action: GestureAction? = lock.withLock {
             guard running else { return nil }
-            var recognizer = recognizers[device] ?? GestureRecognizer()
-            recognizer.options = options
-            let action = recognizer.update(contacts, at: now)
-            recognizers[device] = recognizer
+            var state = devices[device] ?? DeviceGestureState()
+            state.options = options
+            let result = state.frame(contacts, at: now)
+            if result.physicalPress { clickGate.physicalPress(result.action, at: now) }
+            devices[device] = state
             snapshot.frames += 1; snapshot.lastFrame = now
-            snapshot.contacts = recognizers.values.flatMap(\.contacts)
-            return action
+            snapshot.contacts = devices.values.flatMap { $0.recognizer.contacts }
+            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
+            return result.action
         }
         if let action { deliver(action) }
     }
 
     private func receiveButton(device: UInt, down: Bool) {
-        let now = ProcessInfo.processInfo.systemUptime
         lock.withLock {
             guard running else { return }
-            var recognizer = recognizers[device] ?? GestureRecognizer()
-            recognizer.options = options
-            let action = recognizer.buttonChanged(isDown: down, at: now)
-            recognizers[device] = recognizer
-            snapshot.buttonDown = recognizers.values.contains { $0.buttonIsDown }
-            if down { snapshot.physicalPresses += 1; clickGate.physicalPress(action, at: now) }
+            // macOS delivers the button header BEFORE its contacts. Count fingers in the next
+            // frame, so pressing while a fourth finger lands cannot accidentally send Command-W.
+            if devices[device] == nil { devices[device] = DeviceGestureState() }
+            devices[device]?.buttonHeader(isDown: down)
+            if down { snapshot.physicalPresses += 1 }
         }
     }
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            lock.withLock { clickGate.reset(); for key in Array(recognizers.keys) { recognizers[key]?.reset() } }
+            lock.withLock { clickGate.reset(); for key in Array(devices.keys) { devices[key]?.reset() } }
             if let tap = eventTap, isRunning { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
@@ -129,25 +135,58 @@ final class InputMonitor {
         }
         let now = ProcessInfo.processInfo.systemUptime
         let button: Int64 = (type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 0
-        var action: GestureAction?
+        let isMouseButtonEvent = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
+                                 .leftMouseDragged, .rightMouseDragged].contains(type)
+        if isMouseButtonEvent, bufferedClicks[button] != nil, let copy = event.copy() {
+            bufferedClicks[button]?.append(copy)
+            return nil
+        }
+        var deferClick = false
         let swallow: Bool = lock.withLock {
             guard running else { return false }
             switch type {
             case .leftMouseDown, .rightMouseDown:
                 snapshot.mouseClicks += 1
                 let result = clickGate.mouseDown(button: button, at: now)
-                action = result.action
+                if !result.swallow {
+                    // Even the first touch frame can arrive after the mouse-down. A bounded
+                    // 25 ms delay also handles landing all fingers and pressing in one motion.
+                    deferClick = options.threeFingerPress || options.fourFingerPress
+                }
                 return result.swallow
             case .leftMouseUp, .rightMouseUp: return clickGate.mouseUp(button: button)
             case .leftMouseDragged, .rightMouseDragged: return clickGate.shouldSwallowDrag(button: button)
             case .scrollWheel:
-                for key in Array(recognizers.keys) { recognizers[key]?.cancelTap() }
+                for key in Array(devices.keys) { devices[key]?.cancelTap() }
                 return false
             default: return false
             }
         }
-        if let action { deliver(action) }
+        if deferClick, let copy = event.copy() {
+            bufferedClicks[button] = [copy]
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) { [weak self] in self?.resolveBufferedClick(button: button) }
+            return nil
+        }
         return swallow ? nil : Unmanaged.passUnretained(event)
+    }
+
+    private func resolveBufferedClick(button: Int64) {
+        guard let events = bufferedClicks.removeValue(forKey: button) else { return }
+        let swallow = lock.withLock {
+            let result = clickGate.mouseDown(button: button, at: ProcessInfo.processInfo.systemUptime)
+            if result.swallow && events.contains(where: { $0.type == .leftMouseUp || $0.type == .rightMouseUp }) {
+                _ = clickGate.mouseUp(button: button)
+            }
+            return result.swallow
+        }
+        if !swallow { replay(events) }
+    }
+
+    private func replay(_ events: [CGEvent]) {
+        for event in events {
+            event.setIntegerValueField(.eventSourceUserData, value: Self.eventMarker)
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     private func deliver(_ action: GestureAction) {
@@ -168,7 +207,7 @@ enum EventEmitter {
             events = [CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: location, mouseButton: .left),
                       CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: location, mouseButton: .left)]
         } else {
-            let key: CGKeyCode = action == .closeWindow ? 13 : 12 // ANSI W / Q; remapped below for keyboard layouts.
+            let key: CGKeyCode = action == .closeWindow ? 13 : 12 // ANSI W / Q on this Mac's keyboard.
             events = [CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
                       CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)]
         }

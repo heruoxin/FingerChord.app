@@ -2,12 +2,13 @@ import AppKit
 import TouchBridge
 
 if CommandLine.arguments.contains("--probe") {
-    let count = FCStart({ _, _, _, _ in }, { _, _, _ in }, nil)
-    print("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
-    print("Trackpads: \(count); \(String(cString: FCError()))")
-    RunLoop.current.run(until: Date(timeIntervalSinceNow: 1))
-    FCStop()
-    exit(count > 0 ? 0 : 1)
+    exit(Diagnostics.probe())
+}
+if CommandLine.arguments.contains("--self-test-events") {
+    exit(Diagnostics.testEvents())
+}
+if let index = CommandLine.arguments.firstIndex(of: "--render-settings"), CommandLine.arguments.count > index + 1 {
+    exit(Diagnostics.renderSettings(to: CommandLine.arguments[index + 1]))
 }
 
 let app = NSApplication.shared

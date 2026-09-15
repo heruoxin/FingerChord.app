@@ -51,16 +51,21 @@ final class AppModel: ObservableObject {
 
     func reconcile() {
         let ax = AXIsProcessTrusted(), input = CGPreflightListenEventAccess()
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        let screenLocked = session?["CGSSessionScreenIsLocked"] as? Bool ?? false
         if accessibility != ax { accessibility = ax }
         if inputMonitoring != input { inputMonitoring = input }
-        if !enabled || suspended || !ax || !input {
+        if !enabled || suspended || screenLocked || !ax || !input {
             if monitor.isRunning { monitor.stop() }
-        } else if !monitor.isRunning { monitor.start() }
+        } else {
+            if monitor.isRunning && (!monitor.devicesHealthy || !monitor.isEventTapEnabled) { monitor.stop() }
+            if !monitor.isRunning { monitor.start() }
+        }
         running = monitor.isRunning && monitor.isEventTapEnabled
         deviceCount = monitor.deviceCount
         if !enabled { statusText = "已暂停" }
         else if !ax || !input { statusText = "需要系统授权" }
-        else if suspended { statusText = "等待会话恢复" }
+        else if suspended || screenLocked { statusText = "等待会话恢复" }
         else if running { statusText = "正在后台运行" }
         else { statusText = monitor.error ?? "正在恢复监听…" }
         refreshLoginStatus()
