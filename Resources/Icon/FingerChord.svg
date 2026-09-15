@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">FingerChord</title>
+  <desc id="desc">Three fingertip marks on a jade trackpad. A warm middle fingertip taps between two resting fingers.</desc>
+  <defs>
+    <linearGradient id="surface" x1="180" y1="140" x2="880" y2="932" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EBF7F3"/>
+      <stop offset="1" stop-color="#CBDDD7"/>
+    </linearGradient>
+    <linearGradient id="pad" x1="284" y1="220" x2="778" y2="828" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#297E73"/>
+      <stop offset="1" stop-color="#124E48"/>
+    </linearGradient>
+    <linearGradient id="tap" x1="475" y1="282" x2="562" y2="518" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE4A4"/>
+      <stop offset="1" stop-color="#E9BC6F"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="58" width="928" height="928" rx="210" fill="#133E36" opacity=".10"/>
+  <rect x="48" y="42" width="928" height="928" rx="210" fill="url(#surface)"/>
+  <rect x="62" y="56" width="900" height="900" rx="198" stroke="#FFFFFF" stroke-opacity=".65" stroke-width="3"/>
+  <rect x="180" y="210" width="664" height="612" rx="104" fill="#113F39" opacity=".12"/>
+  <rect x="180" y="190" width="664" height="612" rx="104" fill="url(#pad)"/>
+  <rect x="195" y="205" width="634" height="582" rx="90" stroke="#C7EFE2" stroke-opacity=".19" stroke-width="3"/>
+  <path d="M252 707H772" stroke="#D1ECE1" stroke-opacity=".19" stroke-width="3" stroke-linecap="round"/>
+  <rect x="282" y="368" width="108" height="208" rx="54" fill="#D7F0E6"/>
+  <rect x="634" y="368" width="108" height="208" rx="54" fill="#D7F0E6"/>
+  <rect x="458" y="284" width="108" height="238" rx="54" fill="url(#tap)"/>
+  <path d="M466 564C490 583 534 583 558 564" stroke="#F4D397" stroke-width="12" stroke-linecap="round"/>
+  <path d="M432 597C475 632 549 632 592 597" stroke="#F4D397" stroke-opacity=".48" stroke-width="10" stroke-linecap="round"/>
+</svg>
