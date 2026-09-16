@@ -100,3 +100,9 @@ Earlier physical acceptance by the user confirmed repeated middle finger taps wi
 ## Packaging
 
 `./scripts/package-release.sh` builds a ZIP named with the version and current architecture plus a SHA-256 file. The app includes GPL and attribution notices. It uses the local certificate if available, otherwise ad-hoc signing. These are local artifacts, not notarized distribution releases. Public distribution requires choosing a signing/notarization process and supplying corresponding source under GPLv3.
+
+## Physical press feedback — 1.1.1
+
+The app no longer adds a haptic after a three / four finger physical press; it uses the trackpad's native click feedback. Middle finger taps still request one immediate haptic each. This removes the delayed second bump caused by requesting feedback after the hardware press had already occurred.
+
+Validation on 2026-09-16: all 49 tests passed. The installed app's event self-test passed. The physical acceptance trace contained two three finger presses and two four finger presses, all without an app-generated haptic, plus three middle finger taps with exactly three haptic requests. The user confirmed that the resulting press feel was very good. Trace files remain local and are not included in the repository.
