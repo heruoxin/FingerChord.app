@@ -180,7 +180,7 @@ struct SettingsView: View {
                 L10n.text(
                     "about.version",
                     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-                        ?? "1.1.0")
+                        ?? "1.1.1")
             )
             .font(.system(size: 10)).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
             Text(L10n.text("footer"))

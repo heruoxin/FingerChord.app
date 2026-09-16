@@ -202,7 +202,7 @@ final class AppModel: ObservableObject {
         if action == .commandClick && !middleTap { return }
         if action == .closeWindow && !threePress { return }
         if action == .quitApplication && !fourPress { return }
-        HapticFeedback.perform()
+        HapticFeedback.perform(for: action)
         lastGesture = action
         if testMode && settingsVisible {
             actionResult = "result.recognized"

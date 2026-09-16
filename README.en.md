@@ -29,7 +29,7 @@ Independent gesture switches, haptic feedback, live contact preview, a test mode
 3. When the status reads “Running in background”, try the gestures in test mode.
 4. Choose **Hide & Run** or close the window. Reopen the app to change settings, pause or quit.
 
-Test mode shows results and provides haptic feedback without sending shortcuts. Hiding settings ends test mode. Launch at login uses `SMAppService` and is off by default on a fresh installation.
+Test mode shows results without sending shortcuts and uses the same haptics as normal operation. Middle taps receive one app haptic; physical presses retain their native click feedback without an additional pulse. Hiding settings ends test mode. Launch at login uses `SMAppService` and is off by default on a fresh installation.
 
 ### Behavior and compatibility
 

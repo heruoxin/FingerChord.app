@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-09-16
+
+- Three / four finger presses use the trackpad's native click feedback, without an additional delayed app haptic.
+- Middle finger taps retain one immediate haptic per recognized tap, including in test mode.
+
 ## 1.1.0 — 2026-09-16
 
 - Original SVG icon, native app icon resources, and GPL-3.0-only licensing.
