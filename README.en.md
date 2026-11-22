@@ -37,7 +37,7 @@ Test mode shows results without sending shortcuts and uses the same haptics as n
 - Three / four finger gestures require a physical press, not a light tap. Holding a press does not repeat it. Shortcuts target the current app; ⌘ click uses the current cursor position.
 - Tested on **macOS 27.0 (26A428), Apple Silicon and the built-in Force Touch trackpad**. Other trackpads, nonstandard keyboard layouts and future OS versions remain unverified.
 - Uses a private system touch interface and supports macOS 27 only. OS updates may require changes. System gesture preferences are left intact.
-- With gestures enabled, native trackpad clicks may be delayed by up to 80 ms to match physical button events. Unmatched clicks pass through. External mouse clicks are not delayed.
+- One and two finger clicks and external mouse clicks are never delayed. Only clicks made with three or more contacts, which may become a gesture, wait up to 80 ms for the physical button event. Unmatched clicks pass through.
 
 ## Build
 

@@ -41,3 +41,21 @@ import Testing
     #expect(gate.mouseDown(button: 0, at: 1.01).action == .quitApplication)
     #expect(gate.mouseDown(button: 0, at: 1.02).action == nil)
 }
+@Test func pressAfterItsClickReachedAnAppStaysPlain() {
+    var gate = ClickGate()
+    gate.delivered(at: 1)
+    #expect(gate.physicalPress(.closeWindow, at: 1.07) == nil)
+    #expect(!gate.mouseDown(button: 0, at: 1.08).swallow)
+}
+@Test func earlierDeliveredClickDoesNotBlockNextPress() {
+    var gate = ClickGate()
+    gate.delivered(at: 1)
+    #expect(gate.physicalPress(.closeWindow, at: 1.2) == .closeWindow)
+    #expect(gate.mouseDown(button: 0, at: 1.21).swallow)
+}
+@Test func plainPressConsumesItsDeliveredClick() {
+    var gate = ClickGate()
+    gate.delivered(at: 1)
+    #expect(gate.physicalPress(nil, at: 1.03) == nil)
+    #expect(gate.physicalPress(.closeWindow, at: 1.1) == .closeWindow)
+}

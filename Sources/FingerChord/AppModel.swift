@@ -5,6 +5,11 @@ import Combine
 import GestureCore
 import ServiceManagement
 
+/// Only the live preview observes contact updates; the rest of the settings view stays still.
+final class TouchFeed: ObservableObject {
+    @Published var snapshot = MonitorSnapshot()
+}
+
 final class AppModel: ObservableObject {
     @Published var middleTap: Bool {
         didSet {
@@ -44,14 +49,13 @@ final class AppModel: ObservableObject {
     @Published var inputMonitoring = false
     @Published var running = false
     @Published var statusText = L10n.text("status.connecting")
-    @Published var deviceCount = 0
     @Published var loginEnabled = false
     @Published var loginNeedsApproval = false
     @Published var loginError: String?
     @Published var testMode = false
-    @Published var snapshot = MonitorSnapshot()
     @Published var lastAction = L10n.text("result.waiting")
     @Published var actionCount = 0
+    let touches = TouchFeed()
     var settingsVisible = false
     var suspended = false
     let monitor = InputMonitor()
@@ -59,8 +63,8 @@ final class AppModel: ObservableObject {
     private let monitorsInput: Bool
     private var lastGesture: GestureAction?
     private var actionResult = "result.waiting"
-    private var statusTimer: Timer?
-    private var previewTimer: Timer?
+    private var deviceWatcher: DeviceWatcher?
+    private var retrying = false
 
     init(monitorsInput: Bool = true, defaults d: UserDefaults = .standard) {
         defaults = d
@@ -76,9 +80,7 @@ final class AppModel: ObservableObject {
         updateOptions()
         monitor.onAction = { [weak self] action in self?.perform(action) }
         guard monitorsInput else { return }
-        statusTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            self?.reconcile()
-        }
+        deviceWatcher = DeviceWatcher { [weak self] in self?.reconnect() }
         reconcile()
     }
 
@@ -104,10 +106,16 @@ final class AppModel: ObservableObject {
             if monitor.isRunning && (!monitor.devicesHealthy || !monitor.isEventTapEnabled) {
                 monitor.stop()
             }
-            if !monitor.isRunning { monitor.start() }
+            // A trackpad can still be settling after wake or pairing; retry a failed start once.
+            if !monitor.isRunning && !monitor.start() && !retrying {
+                retrying = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.reconcile()
+                    self?.retrying = false
+                }
+            }
         }
         running = monitor.isRunning && monitor.isEventTapEnabled
-        deviceCount = monitor.deviceCount
         if !enabled {
             statusText = L10n.text("status.paused")
         } else if !ax || !input {
@@ -123,8 +131,8 @@ final class AppModel: ObservableObject {
         DiagnosticTrace.record(
             "status",
             [
-                "running": running, "ax": ax, "input": input, "devices": deviceCount,
-                "frames": monitor.readSnapshot().frames, "status": statusText,
+                "running": running, "ax": ax, "input": input, "devices": monitor.deviceCount,
+                "status": statusText,
             ])
     }
 
@@ -135,12 +143,8 @@ final class AppModel: ObservableObject {
 
     func showSettings() {
         settingsVisible = true
-        previewTimer?.invalidate()
-        previewTimer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            var value = self.monitor.readSnapshot()
-            if ProcessInfo.processInfo.systemUptime - value.lastFrame > 0.3 { value.contacts = [] }
-            self.snapshot = value
+        monitor.observe { [weak touches] value in
+            if touches?.snapshot != value { touches?.snapshot = value }
         }
         reconcile()
     }
@@ -148,8 +152,7 @@ final class AppModel: ObservableObject {
     func hideSettings() {
         settingsVisible = false
         testMode = false
-        previewTimer?.invalidate()
-        previewTimer = nil
+        monitor.observe(nil)
     }
 
     func requestAccessibility() {
@@ -230,10 +233,8 @@ final class AppModel: ObservableObject {
     }
 
     func shutdown() {
-        previewTimer?.invalidate()
-        previewTimer = nil
-        statusTimer?.invalidate()
-        statusTimer = nil
+        monitor.observe(nil)
+        deviceWatcher = nil
         if monitorsInput { monitor.stop() }
     }
 

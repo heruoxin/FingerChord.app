@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — 2026-11-23
+
+- One and two finger trackpad clicks are no longer delayed; only clicks with three or more contacts wait for the physical button.
+- A physical press whose system click already reached an app stays a plain click and no longer also sends ⌘W / ⌘Q.
+- No polling: monitoring reacts to leaving System Settings, screen lock, sleep / wake, session and multitouch device notifications. Trackpads connected while running are picked up immediately.
+- Scrolls are observed through a listen-only tap and never wait for the app.
+- The live preview is pushed on change while settings are visible and redraws only the preview.
+- Diagnostics are written once when a recording ends.
+
 ## 1.1.2 — 2026-11-23
 
 - Fixed an occasional stuck button where every click acted like press-and-hold until FingerChord restarted. After a delayed click is released, its drag and up events follow it in order, so the up can no longer reach an app before its down.

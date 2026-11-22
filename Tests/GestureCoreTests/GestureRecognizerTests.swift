@@ -187,3 +187,30 @@ private func prepared() -> GestureRecognizer {
     r.update([left, right, middle], at: 1.32)
     #expect(r.update([left, right], at: 1.42) == nil)
 }
+
+@Test func oneAndTwoFingerClicksAreNeverHeld() {
+    var r = GestureRecognizer()
+    r.update([left], at: 1)
+    #expect(!r.mayOwnClick(at: 1.01))
+    r.update([left, right], at: 1.02)
+    #expect(!r.mayOwnClick(at: 1.03))
+}
+
+@Test func onlyFreshChordsMayOwnAClick() {
+    var r = prepared()
+    #expect(r.mayOwnClick(at: 1.13))
+    #expect(!r.mayOwnClick(at: 1.4))
+    r.update([left, right, middle, fourth], at: 1.41)
+    #expect(r.mayOwnClick(at: 1.42))
+    r.update([], at: 1.43)
+    #expect(!r.mayOwnClick(at: 1.44))
+}
+
+@Test func disabledGesturesNeverHoldClicks() {
+    var r = GestureRecognizer()
+    r.options.middleTap = false
+    r.options.threeFingerPress = false
+    r.options.fourFingerPress = false
+    r.update([left, right, middle], at: 1)
+    #expect(!r.mayOwnClick(at: 1.01))
+}

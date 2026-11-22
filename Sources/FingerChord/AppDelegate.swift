@@ -46,12 +46,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.window?.title = L10n.text("window.title")
         }
         if CommandLine.arguments.contains("--diagnose") { model.testMode = true }
-        DistributedNotificationCenter.default().addObserver(
-            self, selector: #selector(showSettings), name: reopenName, object: nil)
-        DistributedNotificationCenter.default().addObserver(
-            self, selector: #selector(beginDiagnostics),
-            name: Notification.Name("local.FingerChord.beginDiagnostics"), object: nil)
+        // Inactive apps hold distributed notifications by default; this app is almost always inactive.
+        for (selector, name) in [
+            (#selector(showSettings), reopenName),
+            (#selector(beginDiagnostics), Notification.Name("local.FingerChord.beginDiagnostics")),
+            (#selector(reconcile), Notification.Name("com.apple.screenIsLocked")),
+            (#selector(reconcile), Notification.Name("com.apple.screenIsUnlocked")),
+        ] {
+            DistributedNotificationCenter.default().addObserver(
+                self, selector: selector, name: name, object: nil, suspensionBehavior: .deliverImmediately)
+        }
         let center = NSWorkspace.shared.notificationCenter
+        // Permissions and login items change in System Settings; leaving it is the moment to recheck.
+        observers.append(
+            center.addObserver(forName: NSWorkspace.didDeactivateApplicationNotification, object: nil, queue: .main) {
+                [weak self] notification in
+                let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                if app?.bundleIdentifier == "com.apple.systempreferences" { self?.model.reconcile() }
+            })
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observers.append(
                 center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -111,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func beginDiagnostics() { DiagnosticTrace.start() }
+    @objc private func reconcile() { model.reconcile() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings()

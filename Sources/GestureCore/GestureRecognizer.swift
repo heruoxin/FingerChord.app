@@ -63,6 +63,12 @@ public struct GestureRecognizer: Sendable {
         return nil
     }
 
+    /// Every gesture needs three or more fresh contacts. Other system clicks need no delay.
+    public func mayOwnClick(at time: Double) -> Bool {
+        (options.middleTap || options.threeFingerPress || options.fourFingerPress)
+            && contacts.count >= 3 && time - lastFrameTime < 0.18
+    }
+
     /// Called from the trackpad's hardware button callback, never from tap-to-click events.
     public mutating func buttonChanged(isDown: Bool, at time: Double) -> GestureAction? {
         guard buttonIsDown != isDown else { return nil }

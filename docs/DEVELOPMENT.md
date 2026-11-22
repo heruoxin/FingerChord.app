@@ -6,8 +6,9 @@
 | --- | --- |
 | `GestureCore` | Pure Swift contact recognition, physical button coordination and paired click suppression |
 | `TouchBridge` | Runtime MultitouchSupport loading, ABI boundary and device ownership |
-| `InputMonitor` | Per-device state, CoreGraphics event tap, short click buffering and action delivery |
+| `InputMonitor` | Per-device state, CoreGraphics event taps, short click buffering, live preview and action delivery |
 | `HardwareButtonMonitor` | Public IOHIDManager physical switch values and exact trackpad matching |
+| `DeviceWatcher` | IOKit arrival / termination notifications for multitouch devices |
 | `AppModel` / `AppDelegate` | Preferences, permissions, login service, single instance, window and session lifecycle |
 | `SettingsView` / `Localization` | SwiftUI settings and three localized resource bundles |
 
@@ -15,14 +16,17 @@ The private touch ABI was checked against macOS 27.0 (26A428). A touch has a 96-
 
 ### Threading and ownership
 
-- App model, start/stop operations, HID manager and event tap run on the main run loop.
+- App model, start/stop operations, HID manager, device notifications and event taps run on the main run loop.
+- Nothing polls. Monitoring is reconciled on launch, settings display, preference changes, System Settings losing focus (permissions and login items), screen lock / unlock, sleep / wake, session switches and multitouch device arrival or removal. Each reconciliation reads the current lock state and restarts a monitor whose tap or device is no longer healthy. A failed start is retried once after two seconds, for devices still settling after wake or pairing.
+- Only clicks and drags pass through the filtering event tap. Scrolls use a separate listen-only tap, so system scrolling never waits for this process. A click is held only while three or more fresh contacts could turn it into a gesture, or while an earlier click for the same button is still being reposted; other one and two finger clicks pass immediately. If a press resolves after its system click already reached an app, it stays a plain click and sends no shortcut.
+- The live preview is pushed only while settings are visible. Frames coalesce into at most one pending main-queue update, and only the preview views observe it.
 - Multitouch callbacks can run on framework threads. A lock protects recognition state and the session generation. Dispatched actions verify their generation before execution, so stopping/reconnecting invalidates old work.
 - `FCStop` disconnects and drains callback sinks before unregistering callbacks, stopping devices and releasing the owned device array. The dynamic framework handles intentionally remain loaded for the process lifetime.
 - HID value callbacks are explicitly unregistered before unscheduling and closing their manager. CF event tap and run-loop source references are invalidated and released on stop.
 - Each pending click is keyed by a known trackpad and button. Each batch has its own token so an old timeout cannot resolve a later click. Unknown mouse senders do not grow the gate cache.
 - Once a pending click is released, its remaining drag and up events are reposted in order until the up. A real up already queued at the tap therefore cannot overtake the reposted down and leave the target app holding the button. Stopping the monitor replays only completed clicks. A disabled tap drops held clicks because newer events already bypassed it.
 - Diagnostic fields are evaluated outside the trace lock to avoid reversing the monitor/trace lock order. A session generation rejects records still being prepared when a recording is stopped.
-- Timers and UI callbacks capture models weakly. Preview models do not start hardware monitoring or change stored preferences. Stopped diagnostics release their entries; at most one asynchronous snapshot is queued for writing.
+- Timers and UI callbacks capture models weakly. Preview models do not start hardware monitoring or change stored preferences. Stopped diagnostics release their entries after a single write.
 
 ## Local checks
 
@@ -61,7 +65,7 @@ Lifecycle tests disable every gesture during restart cycles and verify that moni
 
 `--self-test-events` runs the event test alone. `--self-test-login` registers and unregisters the login item only when it was initially unregistered; existing login preferences are preserved. Do not run the login test while relying on login startup.
 
-Opt-in traces live at `~/Library/Application Support/FingerChord/diagnostic.json`. They contain touch coordinates, timestamps, button and status events; inspect before sharing. Normal operation does not write them. The trace stops after 180 seconds or 10,000 entries, whichever comes first; a timer checks completion every two seconds.
+Opt-in traces live at `~/Library/Application Support/FingerChord/diagnostic.json`. They contain touch coordinates, timestamps, button and status events; inspect before sharing. Normal operation does not write them. The trace stops and is written once after 180 seconds or 10,000 entries, whichever comes first. The lifecycle self-test overwrites this file with its capacity check.
 
 ## Screenshots and media
 
@@ -113,3 +117,9 @@ Validation on 2026-09-16: all 49 tests passed. The installed app's event self-te
 Occasionally every click acted like press-and-hold until the app restarted. A deferred trackpad down was released by the 80 ms timeout and reposted at the HID tap, but a real up already queued at the tap could pass first; an earlier trace shows a physical up 9 ms after such a release. The target app then received the up before its down. A released click now reposts its remaining drag and up events behind the down.
 
 Validation on 2026-11-23 (macOS 27.2.1, 26B131): all 49 tests passed, also with Address Sanitizer, and swift-format lint was clean. The Developer ID release build was installed. The installed app's lifecycle self-test passed: 100 / 100 starts and releases, plus the event self-test. The race depends on hardware timing, so these checks cannot reproduce it directly; confirm through normal trackpad use.
+
+## Event-driven monitoring — 1.2.0
+
+The 2 s status poll, the 60 ms preview poll and the 2 s diagnostic flush were removed. Monitoring now follows system notifications and multitouch device arrival / removal. One and two finger clicks are no longer held. Scrolls leave the filtering tap. Contact updates redraw only the preview.
+
+Validation on 2026-11-23 (macOS 27.2.1, 26B131): all 55 tests passed, also with Address Sanitizer; the core-only package, swift-format lint and a warning-free build passed. The installed Developer ID build passed the lifecycle self-test (100 / 100 starts and releases with both taps) and the event self-test. `leaks` reported 0 leaks after the stress run (22.7 MB footprint) and in the running app (10.6 MB). A 5 s `sample` of the idle app showed every thread blocked in `mach_msg`; settled idle CPU time was 0.00 s over 28 s, versus 0.02 s per 25 s for 1.1.2. 100 monitor restarts left the `AppleMultitouchDevice` registry entry unchanged, so restarts cannot retrigger the device watcher. Physical checks remain: 3 / 4 finger presses, middle taps, click latency, sleep / wake, lock / unlock and connecting a Bluetooth trackpad.

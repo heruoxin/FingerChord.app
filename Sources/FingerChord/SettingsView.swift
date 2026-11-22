@@ -98,15 +98,14 @@ struct SettingsView: View {
             }
 
             HStack(alignment: .top, spacing: 16) {
-                TouchPreview(contacts: model.snapshot.contacts, pressed: model.snapshot.buttonDown)
+                TouchPreview(feed: model.touches)
                     .id(model.language)
                     .frame(width: 192, height: 119)
                 VStack(alignment: .leading, spacing: 9) {
                     HStack {
                         Text(L10n.text("preview.title")).font(.system(size: 12, weight: .semibold))
                         Spacer()
-                        Text(L10n.text("preview.contacts", model.snapshot.contacts.count))
-                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        ContactCount(feed: model.touches)
                     }
                     Toggle(L10n.text("preview.test"), isOn: $model.testMode)
                         .font(.system(size: 11)).toggleStyle(.checkbox)
@@ -180,7 +179,7 @@ struct SettingsView: View {
                 L10n.text(
                     "about.version",
                     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-                        ?? "1.1.2")
+                        ?? "1.2.0")
             )
             .font(.system(size: 10)).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
             Text(L10n.text("footer"))
@@ -231,10 +230,19 @@ struct SettingsView: View {
     }
 }
 
-private struct TouchPreview: View {
-    let contacts: [Contact]
-    let pressed: Bool
+private struct ContactCount: View {
+    @ObservedObject var feed: TouchFeed
     var body: some View {
+        Text(L10n.text("preview.contacts", feed.snapshot.contacts.count))
+            .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+    }
+}
+
+private struct TouchPreview: View {
+    @ObservedObject var feed: TouchFeed
+    var body: some View {
+        let contacts = feed.snapshot.contacts
+        let pressed = feed.snapshot.buttonDown
         GeometryReader { geometry in
             ZStack {
                 RoundedRectangle(cornerRadius: 12)

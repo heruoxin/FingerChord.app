@@ -4,13 +4,9 @@ import ApplicationServices
 import GestureCore
 import TouchBridge
 
-struct MonitorSnapshot {
+struct MonitorSnapshot: Equatable {
     var contacts: [Contact] = []
-    var frames: UInt64 = 0
-    var physicalPresses: UInt64 = 0
-    var mouseClicks: UInt64 = 0
     var buttonDown = false
-    var lastFrame: Double = 0
 }
 
 final class InputMonitor {
@@ -21,7 +17,8 @@ final class InputMonitor {
     private var senders: Set<UInt64> = []
     private var deviceSenders: [UInt: UInt64] = [:]
     private var options = GestureOptions()
-    private var snapshot = MonitorSnapshot()
+    private var observer: ((MonitorSnapshot) -> Void)?
+    private var previewQueued = false
     // Mouse events and MultitouchSupport are delivered independently. Buffer button-down events
     // briefly so either delivery order produces the same result, without blocking the event tap.
     // A released click reposts its remaining events too; a real up must never overtake its reposted down.
@@ -40,17 +37,23 @@ final class InputMonitor {
     private var generation: UInt64 = 0
     private var ownsBridge = false
     private var running = false
-    private var eventTap: CFMachPort?
-    private var eventSource: CFRunLoopSource?
+    private var taps: [(port: CFMachPort, source: CFRunLoopSource)] = []
     private let hardwareButtons = HardwareButtonMonitor()
     private(set) var deviceCount = 0
     private(set) var error: String?
     var onAction: ((GestureAction) -> Void)?
 
     var isRunning: Bool { lock.withLock { running } }
-    var isEventTapEnabled: Bool { eventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false }
+    var isEventTapEnabled: Bool { !taps.isEmpty && taps.allSatisfy { CGEvent.tapIsEnabled(tap: $0.port) } }
     var devicesHealthy: Bool { FCDevicesHealthy() }
-    func readSnapshot() -> MonitorSnapshot { lock.withLock { snapshot } }
+
+    /// Streams the live preview on the main queue while a handler is set.
+    func observe(_ handler: ((MonitorSnapshot) -> Void)?) {
+        lock.withLock {
+            observer = handler
+            publishPreview()
+        }
+    }
 
     func setOptions(_ value: GestureOptions) {
         lock.withLock {
@@ -72,35 +75,29 @@ final class InputMonitor {
             error = "error.input"
             return false
         }
-        let types: [CGEventType] = [
-            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
-            .leftMouseDragged, .rightMouseDragged, .scrollWheel,
+        let clicks: [CGEventType] = [
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .leftMouseDragged, .rightMouseDragged,
         ]
-        let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
         let context = Unmanaged.passUnretained(self).toOpaque()
-        guard
-            let tap = CGEvent.tapCreate(
-                tap: .cghidEventTap, place: .headInsertEventTap,
-                options: .defaultTap, eventsOfInterest: mask,
-                callback: { _, type, event, context in
-                    guard let context else { return Unmanaged.passUnretained(event) }
-                    return Unmanaged<InputMonitor>.fromOpaque(context).takeUnretainedValue().handle(
-                        type, event)
-                }, userInfo: context)
-        else {
-            error = "error.tap"
-            return false
+        // Scrolls are only observed, so system scrolling never waits for this process.
+        for (types, option) in [(clicks, CGEventTapOptions.defaultTap), ([.scrollWheel], .listenOnly)] {
+            guard
+                let port = CGEvent.tapCreate(
+                    tap: .cghidEventTap, place: .headInsertEventTap, options: option,
+                    eventsOfInterest: types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) },
+                    callback: { _, type, event, context in
+                        Unmanaged<InputMonitor>.fromOpaque(context!).takeUnretainedValue().handle(type, event)
+                    }, userInfo: context)
+            else {
+                stop()
+                error = "error.tap"
+                return false
+            }
+            let source: CFRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
+            taps.append((port, source))
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+            CGEvent.tapEnable(tap: port, enable: true)
         }
-        eventTap = tap
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            CFMachPortInvalidate(tap)
-            eventTap = nil
-            error = "error.tap"
-            return false
-        }
-        eventSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
         lock.withLock {
             generation &+= 1
             running = true
@@ -164,13 +161,12 @@ final class InputMonitor {
             FCStop()  // Unregister and drain framework callbacks before releasing their context.
             ownsBridge = false
         }
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap)
+        for tap in taps {
+            CGEvent.tapEnable(tap: tap.port, enable: false)
+            CFMachPortInvalidate(tap.port)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), tap.source, .commonModes)
         }
-        if let source = eventSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
-        eventSource = nil
-        eventTap = nil
+        taps = []
         deviceCount = 0
         for batch in bufferedClicks.values where batch.finished { replay(batch.events) }
         bufferedClicks = [:]
@@ -179,8 +175,7 @@ final class InputMonitor {
             clickGates = [:]
             senders = []
             deviceSenders = [:]
-            snapshot.contacts = []
-            snapshot.buttonDown = false
+            publishPreview()
         }
     }
 
@@ -193,6 +188,7 @@ final class InputMonitor {
             var state = devices[device] ?? DeviceGestureState()
             state.options = options
             let result = state.frame(contacts, at: now)
+            var action = result.action
             DiagnosticTrace.record(
                 "frame",
                 [
@@ -203,16 +199,13 @@ final class InputMonitor {
             if sender != 0 {
                 deviceSenders[device] = sender
                 senders.insert(sender)
-                if result.physicalPress || result.action == .commandClick {
-                    clickGates[sender, default: ClickGate()].physicalPress(result.action, at: now)
+                if result.physicalPress || action == .commandClick {
+                    action = clickGates[sender, default: ClickGate()].physicalPress(action, at: now)
                 }
             }
             devices[device] = state
-            snapshot.frames += 1
-            snapshot.lastFrame = now
-            snapshot.contacts = devices.values.flatMap { $0.recognizer.contacts }
-            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
-            return result.action.map { ($0, generation) }
+            publishPreview()
+            return action.map { ($0, generation) }
         }
         if let (action, generation) = recognized { deliver(action, generation: generation) }
     }
@@ -229,8 +222,7 @@ final class InputMonitor {
                 devices[device] = state
             }
             devices[device]?.buttonHeader(isDown: down)
-            if down { snapshot.physicalPresses += 1 }
-            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
+            publishPreview()
             return generation
         }
         guard let session else { return }
@@ -246,28 +238,50 @@ final class InputMonitor {
             guard running, generation == session, var state = devices[device] else { return nil }
             let result = state.resolvePendingButton(at: now)
             devices[device] = state
+            var action = result.action
             if result.physicalPress {
                 let sender = FCSenderID(device)
                 if sender != 0 {
-                    clickGates[sender, default: ClickGate()].physicalPress(result.action, at: now)
+                    action = clickGates[sender, default: ClickGate()].physicalPress(action, at: now)
                 }
             }
-            snapshot.buttonDown = devices.values.contains { $0.recognizer.buttonIsDown }
-            return result.action
+            publishPreview()
+            return action
         }
         if let action { deliver(action, generation: session) }
+    }
+
+    // Caller holds the state lock. Frames coalesce into one pending main-queue update.
+    private func publishPreview() {
+        guard observer != nil, !previewQueued else { return }
+        previewQueued = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let (handler, snapshot) = self.lock.withLock {
+                self.previewQueued = false
+                return (
+                    self.observer,
+                    MonitorSnapshot(
+                        contacts: self.devices.values.flatMap { $0.recognizer.contacts },
+                        buttonDown: self.devices.values.contains { $0.recognizer.buttonIsDown })
+                )
+            }
+            handler?(snapshot)
+        }
     }
 
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             DiagnosticTrace.record("tapDisabled", ["type": type.rawValue])
-            // Events bypassed the disabled tap, so a held down replayed now could follow its own up.
-            bufferedClicks = [:]
-            lock.withLock {
-                clickGates = [:]
-                for key in Array(devices.keys) { devices[key]?.reset() }
+            // Clicks bypassed the disabled filter tap, so a held down replayed now could follow its own up.
+            if !CGEvent.tapIsEnabled(tap: taps[0].port) {
+                bufferedClicks = [:]
+                lock.withLock {
+                    clickGates = [:]
+                    for key in Array(devices.keys) { devices[key]?.reset() }
+                }
             }
-            if let tap = eventTap, isRunning { CGEvent.tapEnable(tap: tap, enable: true) }
+            if isRunning { for tap in taps { CGEvent.tapEnable(tap: tap.port, enable: true) } }
             return Unmanaged.passUnretained(event)
         }
         if event.getIntegerValueField(.eventSourceUserData) == Self.eventMarker {
@@ -281,6 +295,7 @@ final class InputMonitor {
         let button: Int64 =
             (type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 0
         let key = ClickKey(sender: sender, button: button)
+        let queued = bufferedClicks[key] != nil
         if type == .leftMouseDown || type == .rightMouseDown {
             resolveBufferedClick(key: key)
             bufferedClicks[key] = nil
@@ -290,12 +305,16 @@ final class InputMonitor {
             guard running, senders.contains(sender) else { return false }
             switch type {
             case .leftMouseDown, .rightMouseDown:
-                snapshot.mouseClicks += 1
                 let result = clickGates[sender, default: ClickGate()].mouseDown(button: button, at: now)
                 if !result.swallow {
-                    // Measured on this Mac: HID switch values arrive up to 54 ms after CG down.
-                    // Only delay events from a known trackpad, never an unrelated mouse.
-                    deferClick = options.middleTap || options.threeFingerPress || options.fourFingerPress
+                    // HID switch values arrive up to 69 ms after CG down. Only clicks that the trackpad's
+                    // current contacts could turn into a gesture wait for them, or that follow a reposted click.
+                    deferClick =
+                        queued
+                        || devices.contains {
+                            deviceSenders[$0.key] == sender && $0.value.recognizer.mayOwnClick(at: now)
+                        }
+                    if !deferClick { clickGates[sender]?.delivered(at: now) }
                 }
                 return result.swallow
             case .leftMouseUp, .rightMouseUp:
@@ -347,9 +366,13 @@ final class InputMonitor {
     private func resolveBufferedClick(key: ClickKey) {
         guard let batch = bufferedClicks[key], !batch.released else { return }
         let swallow = lock.withLock {
-            let result = clickGates[key.sender, default: ClickGate()].mouseDown(
-                button: key.button, at: ProcessInfo.processInfo.systemUptime)
-            if result.swallow && batch.finished { _ = clickGates[key.sender]?.mouseUp(button: key.button) }
+            let now = ProcessInfo.processInfo.systemUptime
+            let result = clickGates[key.sender, default: ClickGate()].mouseDown(button: key.button, at: now)
+            if !result.swallow {
+                clickGates[key.sender]?.delivered(at: now)
+            } else if batch.finished {
+                _ = clickGates[key.sender]?.mouseUp(button: key.button)
+            }
             return result.swallow
         }
         DiagnosticTrace.record(

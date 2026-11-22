@@ -2,14 +2,22 @@
 import Foundation
 
 /// Matches a physical trackpad press to its system mouse event. Keeps down/up suppression paired.
+/// A press whose system click already reached an app stays a plain click, never also a shortcut.
 public struct ClickGate {
     private var pending: (action: GestureAction, time: Double)?
+    private var deliveredDown = -Double.infinity
     private var swallowedButtons: Set<Int64> = []
     public init() {}
 
-    public mutating func physicalPress(_ action: GestureAction?, at time: Double) {
-        pending = action.map { ($0, time) }
+    /// Returns the action the press may still perform.
+    @discardableResult
+    public mutating func physicalPress(_ action: GestureAction?, at time: Double) -> GestureAction? {
+        pending = time - deliveredDown < 0.15 ? nil : action.map { ($0, time) }
+        deliveredDown = -.infinity
+        return pending?.action
     }
+
+    public mutating func delivered(at time: Double) { deliveredDown = time }
 
     public mutating func mouseDown(button: Int64, at time: Double) -> (
         swallow: Bool, action: GestureAction?
