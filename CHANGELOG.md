@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 — 2026-11-23
+
+- Fixed an occasional stuck button where every click acted like press-and-hold until FingerChord restarted. After a delayed click is released, its drag and up events follow it in order, so the up can no longer reach an app before its down.
+- An unfinished click held when monitoring stops, or any click held when the event tap is disabled, is dropped instead of replayed late.
+
 ## 1.1.1 — 2026-09-16
 
 - Three / four finger presses use the trackpad's native click feedback, without an additional delayed app haptic.

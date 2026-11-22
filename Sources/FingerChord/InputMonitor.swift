@@ -24,6 +24,7 @@ final class InputMonitor {
     private var snapshot = MonitorSnapshot()
     // Mouse events and MultitouchSupport are delivered independently. Buffer button-down events
     // briefly so either delivery order produces the same result, without blocking the event tap.
+    // A released click reposts its remaining events too; a real up must never overtake its reposted down.
     private struct ClickKey: Hashable {
         let sender: UInt64
         let button: Int64
@@ -31,6 +32,8 @@ final class InputMonitor {
     private struct BufferedClick {
         let token = UUID()
         var events: [CGEvent]
+        var released = false
+        var finished: Bool { events.contains { $0.type == .leftMouseUp || $0.type == .rightMouseUp } }
     }
     private var bufferedClicks: [ClickKey: BufferedClick] = [:]
     // Protect the generation with the same lock as recognition, including worker callbacks.
@@ -169,7 +172,7 @@ final class InputMonitor {
         eventSource = nil
         eventTap = nil
         deviceCount = 0
-        for batch in bufferedClicks.values { replay(batch.events) }
+        for batch in bufferedClicks.values where batch.finished { replay(batch.events) }
         bufferedClicks = [:]
         lock.withLock {
             devices = [:]
@@ -258,6 +261,8 @@ final class InputMonitor {
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             DiagnosticTrace.record("tapDisabled", ["type": type.rawValue])
+            // Events bypassed the disabled tap, so a held down replayed now could follow its own up.
+            bufferedClicks = [:]
             lock.withLock {
                 clickGates = [:]
                 for key in Array(devices.keys) { devices[key]?.reset() }
@@ -276,18 +281,9 @@ final class InputMonitor {
         let button: Int64 =
             (type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 0
         let key = ClickKey(sender: sender, button: button)
-        let isMouseButtonEvent = [
-            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
-            .leftMouseDragged, .rightMouseDragged,
-        ].contains(type)
-        if isMouseButtonEvent, let batch = bufferedClicks[key] {
-            // Keep successive clicks separate and bound retained CGEvents per device.
-            if type == .leftMouseDown || type == .rightMouseDown || batch.events.count >= 64 {
-                resolveBufferedClick(key: key)
-            } else if let copy = event.copy() {
-                bufferedClicks[key]?.events.append(copy)
-                return nil
-            }
+        if type == .leftMouseDown || type == .rightMouseDown {
+            resolveBufferedClick(key: key)
+            bufferedClicks[key] = nil
         }
         var deferClick = false
         let swallow: Bool = lock.withLock {
@@ -299,9 +295,7 @@ final class InputMonitor {
                 if !result.swallow {
                     // Measured on this Mac: HID switch values arrive up to 54 ms after CG down.
                     // Only delay events from a known trackpad, never an unrelated mouse.
-                    deferClick =
-                        senders.contains(sender)
-                        && (options.middleTap || options.threeFingerPress || options.fourFingerPress)
+                    deferClick = options.middleTap || options.threeFingerPress || options.fourFingerPress
                 }
                 return result.swallow
             case .leftMouseUp, .rightMouseUp:
@@ -330,6 +324,15 @@ final class InputMonitor {
             }
             return nil
         }
+        if type != .scrollWheel, let batch = bufferedClicks[key], let copy = event.copy() {
+            if batch.released {
+                replay([copy])
+                if type == .leftMouseUp || type == .rightMouseUp { bufferedClicks[key] = nil }
+            } else {
+                bufferedClicks[key]?.events.append(copy)
+            }
+            return nil
+        }
         return swallow ? nil : Unmanaged.passUnretained(event)
     }
 
@@ -342,21 +345,17 @@ final class InputMonitor {
     }
 
     private func resolveBufferedClick(key: ClickKey) {
-        guard let batch = bufferedClicks.removeValue(forKey: key) else { return }
-        let events = batch.events
+        guard let batch = bufferedClicks[key], !batch.released else { return }
         let swallow = lock.withLock {
             let result = clickGates[key.sender, default: ClickGate()].mouseDown(
                 button: key.button, at: ProcessInfo.processInfo.systemUptime)
-            if result.swallow
-                && events.contains(where: { $0.type == .leftMouseUp || $0.type == .rightMouseUp })
-            {
-                _ = clickGates[key.sender]?.mouseUp(button: key.button)
-            }
+            if result.swallow && batch.finished { _ = clickGates[key.sender]?.mouseUp(button: key.button) }
             return result.swallow
         }
         DiagnosticTrace.record(
-            "resolvedClick", ["sender": key.sender, "swallow": swallow, "events": events.count])
-        if !swallow { replay(events) }
+            "resolvedClick", ["sender": key.sender, "swallow": swallow, "events": batch.events.count])
+        bufferedClicks[key] = swallow || batch.finished ? nil : BufferedClick(events: [], released: true)
+        if !swallow { replay(batch.events) }
     }
 
     private func replay(_ events: [CGEvent]) {

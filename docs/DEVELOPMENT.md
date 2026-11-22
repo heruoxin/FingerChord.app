@@ -19,7 +19,8 @@ The private touch ABI was checked against macOS 27.0 (26A428). A touch has a 96-
 - Multitouch callbacks can run on framework threads. A lock protects recognition state and the session generation. Dispatched actions verify their generation before execution, so stopping/reconnecting invalidates old work.
 - `FCStop` disconnects and drains callback sinks before unregistering callbacks, stopping devices and releasing the owned device array. The dynamic framework handles intentionally remain loaded for the process lifetime.
 - HID value callbacks are explicitly unregistered before unscheduling and closing their manager. CF event tap and run-loop source references are invalidated and released on stop.
-- Each pending click keeps at most 64 copied events, keyed by a known trackpad and button. Each batch has its own token so an old timeout cannot resolve a later click. Unknown mouse senders do not grow the gate cache.
+- Each pending click is keyed by a known trackpad and button. Each batch has its own token so an old timeout cannot resolve a later click. Unknown mouse senders do not grow the gate cache.
+- Once a pending click is released, its remaining drag and up events are reposted in order until the up. A real up already queued at the tap therefore cannot overtake the reposted down and leave the target app holding the button. Stopping the monitor replays only completed clicks. A disabled tap drops held clicks because newer events already bypassed it.
 - Diagnostic fields are evaluated outside the trace lock to avoid reversing the monitor/trace lock order. A session generation rejects records still being prepared when a recording is stopped.
 - Timers and UI callbacks capture models weakly. Preview models do not start hardware monitoring or change stored preferences. Stopped diagnostics release their entries; at most one asynchronous snapshot is queued for writing.
 
@@ -106,3 +107,9 @@ Earlier physical acceptance by the user confirmed repeated middle finger taps wi
 The app no longer adds a haptic after a three / four finger physical press; it uses the trackpad's native click feedback. Middle finger taps still request one immediate haptic each. This removes the delayed second bump caused by requesting feedback after the hardware press had already occurred.
 
 Validation on 2026-09-16: all 49 tests passed. The installed app's event self-test passed. The physical acceptance trace contained two three finger presses and two four finger presses, all without an app-generated haptic, plus three middle finger taps with exactly three haptic requests. The user confirmed that the resulting press feel was very good. Trace files remain local and are not included in the repository.
+
+## Click ordering — 1.1.2
+
+Occasionally every click acted like press-and-hold until the app restarted. A deferred trackpad down was released by the 80 ms timeout and reposted at the HID tap, but a real up already queued at the tap could pass first; an earlier trace shows a physical up 9 ms after such a release. The target app then received the up before its down. A released click now reposts its remaining drag and up events behind the down.
+
+Validation on 2026-11-23 (macOS 27.2.1, 26B131): all 49 tests passed, also with Address Sanitizer, and swift-format lint was clean. The Developer ID release build was installed. The installed app's lifecycle self-test passed: 100 / 100 starts and releases, plus the event self-test. The race depends on hardware timing, so these checks cannot reproduce it directly; confirm through normal trackpad use.
