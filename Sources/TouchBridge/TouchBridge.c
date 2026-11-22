@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 
 // ABI declarations, checked against the framework in macOS 27.0 (26A428).
 typedef struct { float x, y; } MTPoint;
@@ -45,19 +47,41 @@ static int32_t activeCount;
 static FCFrameCallback frameSink;
 static FCButtonCallback buttonSink;
 static void *sinkContext;
+static bool streamAll;
+static struct { Device device; int32_t count; uint64_t since; } lastCounts[16];
 static pthread_mutex_t sinkLock = PTHREAD_MUTEX_INITIALIZER;
 static char errorText[256];
+
+// Caller holds sinkLock. One finger moving is just the pointer: skip it once 300 ms
+// have passed since the count last changed, long enough for any tap to finish.
+static bool worthDelivering(Device device, int32_t count) {
+    uint64_t now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+    for (int i = 0; i < 16; i++) {
+        if (lastCounts[i].device && lastCounts[i].device != device) continue;
+        if (!lastCounts[i].device || lastCounts[i].count != count) {
+            lastCounts[i].device = device;
+            lastCounts[i].count = count;
+            lastCounts[i].since = now;
+        }
+        return count > 1 || now - lastCounts[i].since < 300000000;
+    }
+    return true;
+}
 
 static void onFrame(Device device, RawTouch *touches, int32_t count, double timestamp, int32_t frame) {
     (void)timestamp; (void)frame;
     if (count < 0 || count > 32 || (count > 0 && !touches)) return;
     FCContact copied[32];
+    int32_t touching = 0;
     for (int32_t i = 0; i < count; i++) {
-        copied[i] = (FCContact){ touches[i].identifier, touches[i].state,
-            touches[i].normalized.position.x, touches[i].normalized.position.y, touches[i].pressure };
+        MTPoint point = touches[i].normalized.position;
+        // States 3 and 4 are touching; others hover or lift. NaN fails the range test.
+        if ((touches[i].state == 3 || touches[i].state == 4) && point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1)
+            copied[touching++] = (FCContact){ touches[i].identifier, point.x, point.y };
     }
     pthread_mutex_lock(&sinkLock);
-    if (frameSink) frameSink((uintptr_t)device, copied, count, sinkContext);
+    if (frameSink && (worthDelivering(device, touching) || streamAll))
+        frameSink((uintptr_t)device, copied, touching, sinkContext);
     pthread_mutex_unlock(&sinkLock);
 }
 
@@ -120,6 +144,7 @@ int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context)
 void FCStop(void) {
     pthread_mutex_lock(&sinkLock);
     frameSink = NULL; buttonSink = NULL; sinkContext = NULL;
+    memset(lastCounts, 0, sizeof(lastCounts));
     pthread_mutex_unlock(&sinkLock);
     for (int32_t i = 0; i < activeCount; i++) {
         unregisterFrame(activeDevices[i], onFrame);
@@ -130,8 +155,12 @@ void FCStop(void) {
     activeCount = 0;
     if (deviceList) { CFRelease(deviceList); deviceList = NULL; }
 }
+void FCSetStreaming(bool streaming) {
+    pthread_mutex_lock(&sinkLock);
+    streamAll = streaming;
+    pthread_mutex_unlock(&sinkLock);
+}
 const char *FCError(void) { return errorText; }
-int32_t FCDeviceCount(void) { return activeCount; }
 uintptr_t FCDeviceForHIDService(uint32_t service) {
     if (!service) return 0;
     for (int32_t i = 0; i < activeCount; i++) {

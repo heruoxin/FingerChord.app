@@ -12,7 +12,9 @@ app_path="$staging/FingerChord.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$binary_dir/FingerChord" "$app_path/Contents/MacOS/FingerChord"
 cp Resources/Info.plist "$app_path/Contents/Info.plist"
-cp Resources/Icon/FingerChord.icns LICENSE ACKNOWLEDGMENTS.md "$app_path/Contents/Resources/"
+cp LICENSE ACKNOWLEDGMENTS.md "$app_path/Contents/Resources/"
+xcrun actool Resources/AppIcon.icon --compile "$app_path/Contents/Resources" --platform macosx \
+    --minimum-deployment-target 27.0 --app-icon AppIcon --output-partial-info-plist "$staging/icon.plist" >/dev/null
 # L10n resolves this packaged resource bundle before falling back to SwiftPM paths.
 cp -R "$binary_dir/FingerChord_FingerChord.bundle" "$app_path/Contents/Resources/"
 for language in en zh-Hans zh-Hant; do

@@ -38,7 +38,7 @@ struct ReleaseTests {
         ] {
             L10n.language = language
             #expect(L10n.text("app.name") == name)
-            #expect(L10n.text("preview.contacts", 5).contains("5"))
+            #expect(L10n.text("preview.ax", 5).contains("5"))
         }
     }
 

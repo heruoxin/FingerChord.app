@@ -1,125 +1,122 @@
-# Development and verification
+# Development
 
 ## Architecture
 
 | Component | Responsibility |
 | --- | --- |
-| `GestureCore` | Pure Swift contact recognition, physical button coordination and paired click suppression |
-| `TouchBridge` | Runtime MultitouchSupport loading, ABI boundary and device ownership |
-| `InputMonitor` | Per-device state, CoreGraphics event taps, short click buffering, live preview and action delivery |
-| `HardwareButtonMonitor` | Public IOHIDManager physical switch values and exact trackpad matching |
+| `GestureCore` | Pure Swift recognition: chord taps, three finger tap, physical presses, click gating |
+| `TouchBridge` | MultitouchSupport loading, ABI boundary, contact filtering and device ownership |
+| `InputMonitor` | Per-device state, event taps, short click buffering, live preview and action delivery |
+| `HardwareButtonMonitor` | Physical button values from IOHIDManager, matched to the exact trackpad |
 | `DeviceWatcher` | IOKit arrival / termination notifications for multitouch devices |
-| `AppModel` / `AppDelegate` | Preferences, permissions, login service, single instance, window and session lifecycle |
-| `SettingsView` / `Localization` | SwiftUI settings and three localized resource bundles |
+| `AppModel` / `AppDelegate` | Preferences, permissions, login item, single instance, settings window, session events |
+| `SettingsView` / `Localization` | SwiftUI settings and three string tables |
 
-The private touch ABI was checked against macOS 27.0 (26A428). A touch has a 96-byte layout with normalized coordinates at offset 32; compile-time C assertions enforce these assumptions. The legacy button callback is retained, but this Mac's MTHID device does not deliver it. Physical presses use HID Usage Page 9 / Usage 1 instead. Tap-to-click and three finger dragging do not produce that switch value.
+The private touch ABI was checked against macOS 27.0 (26A428): a 96-byte contact with normalized coordinates at offset 32, enforced by C static assertions. Physical presses come from HID usage page 9 / usage 1; tap-to-click and three finger dragging never change that value. The legacy MultitouchSupport button callback stays registered but this Mac’s MTHID device does not deliver it.
+
+## Recognition
+
+- **Chord taps.** Two contacts must stay within 0.015 of their snapshot for 80 ms before a third finger counts, so a scrolling pair keeps restarting its clock. The third finger decides the gesture by position: between the pair, or 0.04–0.4 to its left or right. It must lift within 25–260 ms, move less than 0.04, and the pair may drift at most 0.045.
+- **Three finger tap.** Exactly three contacts landing within 70 ms of an empty trackpad, none moving more than 0.03, all lifted within 300 ms, and no physical press. A chord tap or any hardware button edge ends the burst.
+- **Presses.** Three or four fresh contacts (under 180 ms old) when the hardware button goes down.
+- Presses and chord taps pass the click gate: a system click produced by the same touch is swallowed, and a gesture whose system click already reached an app stays a plain click. A three finger tap produces no click of its own and skips the gate.
+
+## Runtime
+
+- Nothing polls. Monitoring is reconciled on launch, settings display, preference changes, System Settings losing focus, screen lock / unlock, sleep / wake, session switches and multitouch device arrival or removal. A failed start retries once after two seconds.
+- `TouchBridge` copies only touching contacts. Once a count of zero or one has held for 300 ms, its frames are dropped unless the preview is streaming, so moving the pointer never enters Swift while a tap that just ended still sees every frame.
+- One filtering tap sees mouse downs and ups. A second tap for drags is enabled only while a click is buffered or swallowed. Scrolls are not tapped at all.
+- A click is held only while three or more fresh contacts could turn it into a gesture, or while an earlier click for the same button is being reposted; at most 80 ms. A released click reposts its remaining drag and up events behind the down. A disabled tap drops held clicks because newer events already bypassed it.
+- Closing settings (close button, ⌘W, Hide) spawns the same binary as a helper with `--relaunch-after <pid>` and quits. The helper waits for that pid with a kqueue `NOTE_EXIT`, then asks LaunchServices for an ordinary background launch with `--relaunch`, which never opens settings by itself. The handover starts in `windowShouldClose`, which quitting and logging out do not call, so they never relaunch.
+- With every gesture off, or while paused, locked or asleep, all taps, devices and HID callbacks are released.
 
 ### Threading and ownership
 
-- App model, start/stop operations, HID manager, device notifications and event taps run on the main run loop.
-- Nothing polls. Monitoring is reconciled on launch, settings display, preference changes, System Settings losing focus (permissions and login items), screen lock / unlock, sleep / wake, session switches and multitouch device arrival or removal. Each reconciliation reads the current lock state and restarts a monitor whose tap or device is no longer healthy. A failed start is retried once after two seconds, for devices still settling after wake or pairing.
-- Only clicks and drags pass through the filtering event tap. Scrolls use a separate listen-only tap, so system scrolling never waits for this process. A click is held only while three or more fresh contacts could turn it into a gesture, or while an earlier click for the same button is still being reposted; other one and two finger clicks pass immediately. If a press resolves after its system click already reached an app, it stays a plain click and sends no shortcut.
-- The live preview is pushed only while settings are visible. Frames coalesce into at most one pending main-queue update, and only the preview views observe it.
-- Multitouch callbacks can run on framework threads. A lock protects recognition state and the session generation. Dispatched actions verify their generation before execution, so stopping/reconnecting invalidates old work.
-- `FCStop` disconnects and drains callback sinks before unregistering callbacks, stopping devices and releasing the owned device array. The dynamic framework handles intentionally remain loaded for the process lifetime.
-- HID value callbacks are explicitly unregistered before unscheduling and closing their manager. CF event tap and run-loop source references are invalidated and released on stop.
-- Each pending click is keyed by a known trackpad and button. Each batch has its own token so an old timeout cannot resolve a later click. Unknown mouse senders do not grow the gate cache.
-- Once a pending click is released, its remaining drag and up events are reposted in order until the up. A real up already queued at the tap therefore cannot overtake the reposted down and leave the target app holding the button. Stopping the monitor replays only completed clicks. A disabled tap drops held clicks because newer events already bypassed it.
-- Diagnostic fields are evaluated outside the trace lock to avoid reversing the monitor/trace lock order. A session generation rejects records still being prepared when a recording is stopped.
-- Timers and UI callbacks capture models weakly. Preview models do not start hardware monitoring or change stored preferences. Stopped diagnostics release their entries after a single write.
+- App model, start / stop, HID manager, device notifications and event taps run on the main run loop.
+- Multitouch callbacks arrive on framework threads. One lock protects recognition state and the session generation; dispatched actions check the generation, so stopping invalidates queued work.
+- `FCStop` clears and drains the callback sinks before unregistering devices. The framework stays loaded for the process lifetime.
+- Diagnostic fields are evaluated outside the trace lock, keeping the monitor → trace lock order.
 
-## Local checks
+## Checks
 
 ```sh
 ./scripts/test.sh
 swift test --sanitize=address
-./scripts/build.sh
+./scripts/test-core.sh        # recognition only, for hosted CI on older macOS
 xcrun swift-format lint -r Sources Tests Package.swift
+./scripts/build.sh
 ```
 
-The full package requires macOS 27. `./scripts/test-core.sh` copies the platform-independent recognition code and tests to a temporary Swift package, for hosted CI on earlier macOS versions. Temporary files are removed automatically.
-
-GitHub's [runner inventory](https://github.com/actions/runner-images#available-images) lists macOS 26 as the current hosted image at preparation time. Therefore hosted CI checks the gesture core. The full app workflow is manual and requires a self-hosted runner with the custom `macOS-27` label. It does not run untrusted pull requests on a personal Mac. Neither workflow grants input permissions or runs hardware shortcuts on CI.
+Hosted CI runs the core package. The full app workflow is manual and needs a self-hosted runner labelled `macOS-27`; neither grants input permissions or sends events.
 
 ## Diagnostics
 
-Quit the normal app before running hardware self-tests. A second normal launch reopens settings in the existing instance. Command-line permission attribution can differ from Launch Services; prefer launching the installed app when testing actual input.
+Quit the normal app before hardware self-tests.
 
 ```sh
-# Permission, device and raw frame counts; --observe watches for 15 seconds.
+# Permissions, devices and raw frame counts; --observe watches for 15 s.
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --probe --observe
 
-# Show settings, enable test mode and record a bounded trace.
-open /Applications/FingerChord.app --args --settings --diagnose
+# Open settings and record a bounded trace. Closing settings hands over to a new process and ends it.
+open /Applications/FingerChord.app --args --diagnose
 
-# Start a fresh trace in the already-running app.
+# Start a trace in the running background app, e.g. after closing settings.
 /Applications/FingerChord.app/Contents/MacOS/FingerChord --start-diagnostics
 
-# With the normal app quit: 100 real input lifecycle cycles, then hold for 45 seconds.
+# 100 real monitor start / stop cycles, buffer stress and the event self-test, then hold 45 s for leaks.
 open /Applications/FingerChord.app --args --self-test-lifecycle --hold-for-leaks
 cat "$HOME/Library/Application Support/FingerChord/lifecycle-test.json"
 leaks FingerChord
 ```
 
-Lifecycle tests disable every gesture during restart cycles and verify that monitor objects deallocate. They also fill and release the diagnostic buffer ten times. Finally, the event self-test sends three ⌘ click pairs, ⌘W and ⌘Q through an absorbing event tap; all ten synthetic events are intercepted before reaching other applications. The test refuses to send if required permissions or the absorbing tap are unavailable. It leaves login and gesture preferences unchanged and exits automatically. Check `passed: true` in the report; `open`'s exit status only reports launch success.
+The event self-test sends every gesture’s events and absorbs each tagged one in a session tap before any app sees it; it refuses to send without permissions or that tap. `--self-test-events` runs it alone. `--self-test-login` registers and unregisters the login item only if it was unregistered.
 
-`--self-test-events` runs the event test alone. `--self-test-login` registers and unregisters the login item only when it was initially unregistered; existing login preferences are preserved. Do not run the login test while relying on login startup.
+Traces live in `~/Library/Application Support/FingerChord/diagnostic.json` with contact coordinates, timestamps, button and status events. Inspect before sharing. A trace stops and is written once after 180 s or 10,000 entries.
 
-Opt-in traces live at `~/Library/Application Support/FingerChord/diagnostic.json`. They contain touch coordinates, timestamps, button and status events; inspect before sharing. Normal operation does not write them. The trace stops and is written once after 180 seconds or 10,000 entries, whichever comes first. The lifecycle self-test overwrites this file with its capacity check.
+## Icon and media
 
-## Screenshots and media
+`Resources/AppIcon.icon` is an Icon Composer document: a solid ⌘ key behind a frosted glass trackpad with three fingertips, in the same layered style as まだまだ and FilterBox. `build.sh` compiles it with `actool` into `Assets.car` and `AppIcon.icns`. Edit it in Icon Composer, then refresh the README image:
+
+```sh
+"/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool" \
+    Resources/AppIcon.icon --export-image --output-file docs/media/icon.png \
+    --platform macOS --rendition Default --width 256 --height 256 --scale 2
+```
+
+README screenshots are `screencapture -o -l <window id>` captures of the real settings window. For quick layout checks without touching preferences or input:
 
 ```sh
 app=dist/FingerChord.app/Contents/MacOS/FingerChord
-"$app" --render-settings docs/media/settings-zh-Hans.png --language zh-Hans
-"$app" --render-settings docs/media/settings-en.png --language en
-"$app" --render-settings .build/settings-dark.png --language zh-Hant --dark
-"$app" --render-settings .build/settings-permissions.png --language en --permissions
+"$app" --render-settings .build/settings.png --language zh-Hant --dark --permissions
 ```
 
-The renderer uses the real settings view with a deterministic preview model. It does not acquire input monitoring, register login items or send shortcuts. These are interface renders, not evidence of a live hardware state. Language flags apply only to that rendering process.
+The offscreen render draws switches in their inactive-window style.
 
-The supplied demonstration was renamed to `fingerchord-demo.mp4` and converted to H.264/YUV420p with fast-start metadata. A compact GIF provides an inline README preview. The original desktop MOV was preserved; the recording depicts the initial UI.
+## Verification log
 
-## Verification — 2026-09-16
+### 1.3.0 — 2026-11-23
 
-Environment: macOS 27.0 (26A428), Apple Silicon, Swift 6.4, built-in Force Touch trackpad.
+macOS 27.2.1 (26B131), Apple Silicon, built-in Force Touch trackpad, Developer ID build.
 
 | Check | Result |
 | --- | --- |
-| Gesture regression tests | 44 passed |
-| App resource / localization / object-release tests | 3 passed |
-| Address Sanitizer | Both test suites passed; no reported memory-access errors |
-| C static analyzer | No diagnostics for TouchBridge |
-| Release build and code signature | Passed |
-| Real hardware lifecycle stress | 100 / 100 starts and 100 / 100 monitor releases |
-| Diagnostic capacity / release stress | 10 full buffers bounded and released |
-| Event emission | 10 / 10 synthetic events, intercepted before other apps |
-| `leaks` after lifecycle stress | 0 leaks / 0 bytes; physical footprint 22.8 MB, peak 23.0 MB |
-| `leaks` with live settings and language switching | 0 leaks / 0 bytes |
-| Settings UI | English, Simplified / Traditional Chinese, light / dark and permission layouts inspected |
-| Existing preferences | All three gestures and the user's enabled login preference retained |
+| Unit tests | 64 passed, also under Address Sanitizer; core-only package passed |
+| swift-format lint, release build, code signature | Clean |
+| Lifecycle self-test | 100 / 100 starts and releases; trace buffers bounded and released |
+| Event self-test | 12 / 12 events for all six gestures, absorbed before apps |
+| `leaks` after stress | 0 leaks |
+| Idle | 0.0% CPU, 0 idle wakeups, every thread in `mach_msg`, 0.09 s CPU since launch |
+| Memory | 10 MB at launch (empty AppKit process: 8.3 MB); 28 MB with settings open; 10 MB after closing via relaunch |
+| Event taps | One enabled tap for downs / ups; drag tap disabled when idle; no scroll tap |
+| Recognizer | 113 ns per two-finger frame (0.0014% of a core at 120 Hz) |
+| Window close / ⌘W / Hide | Fresh `--relaunch` instance within ~300 ms, one process, click tap live |
+| Quit with settings open | Quit button and Apple Event quit exit without relaunching |
 
-Earlier physical acceptance by the user confirmed repeated middle finger taps without lifting the resting pair, three / four finger presses, no false action on three finger dragging, and haptics in foreground and background. This release also received live language-switching checks. These bounded checks cannot prove the absence of every leak or driver issue. External trackpads, alternate keyboard layouts and startup after a fresh login still need separate hardware validation.
+Still needs fingers on hardware: side taps and three finger tap thresholds, the system click produced by a three finger tap with Three Finger Drag on, and the earlier checks (middle taps, presses, sleep / wake, lock / unlock, Bluetooth trackpad).
 
-## Packaging
+### Earlier
 
-`./scripts/package-release.sh` builds a ZIP named with the version and current architecture plus a SHA-256 file. The app includes GPL and attribution notices. It uses the local certificate if available, otherwise ad-hoc signing. These are local artifacts, not notarized distribution releases. Public distribution requires choosing a signing/notarization process and supplying corresponding source under GPLv3.
-
-## Physical press feedback — 1.1.1
-
-The app no longer adds a haptic after a three / four finger physical press; it uses the trackpad's native click feedback. Middle finger taps still request one immediate haptic each. This removes the delayed second bump caused by requesting feedback after the hardware press had already occurred.
-
-Validation on 2026-09-16: all 49 tests passed. The installed app's event self-test passed. The physical acceptance trace contained two three finger presses and two four finger presses, all without an app-generated haptic, plus three middle finger taps with exactly three haptic requests. The user confirmed that the resulting press feel was very good. Trace files remain local and are not included in the repository.
-
-## Click ordering — 1.1.2
-
-Occasionally every click acted like press-and-hold until the app restarted. A deferred trackpad down was released by the 80 ms timeout and reposted at the HID tap, but a real up already queued at the tap could pass first; an earlier trace shows a physical up 9 ms after such a release. The target app then received the up before its down. A released click now reposts its remaining drag and up events behind the down.
-
-Validation on 2026-11-23 (macOS 27.2.1, 26B131): all 49 tests passed, also with Address Sanitizer, and swift-format lint was clean. The Developer ID release build was installed. The installed app's lifecycle self-test passed: 100 / 100 starts and releases, plus the event self-test. The race depends on hardware timing, so these checks cannot reproduce it directly; confirm through normal trackpad use.
-
-## Event-driven monitoring — 1.2.0
-
-The 2 s status poll, the 60 ms preview poll and the 2 s diagnostic flush were removed. Monitoring now follows system notifications and multitouch device arrival / removal. One and two finger clicks are no longer held. Scrolls leave the filtering tap. Contact updates redraw only the preview.
-
-Validation on 2026-11-23 (macOS 27.2.1, 26B131): all 55 tests passed, also with Address Sanitizer; the core-only package, swift-format lint and a warning-free build passed. The installed Developer ID build passed the lifecycle self-test (100 / 100 starts and releases with both taps) and the event self-test. `leaks` reported 0 leaks after the stress run (22.7 MB footprint) and in the running app (10.6 MB). A 5 s `sample` of the idle app showed every thread blocked in `mach_msg`; settled idle CPU time was 0.00 s over 28 s, versus 0.02 s per 25 s for 1.1.2. 100 monitor restarts left the `AppleMultitouchDevice` registry entry unchanged, so restarts cannot retrigger the device watcher. Physical checks remain: 3 / 4 finger presses, middle taps, click latency, sleep / wake, lock / unlock and connecting a Bluetooth trackpad.
+- **1.2.0** — Polls removed; 55 tests, lifecycle and event self-tests passed; 0 leaks; idle CPU 0.00 s over 28 s; 100 restarts left the device registry unchanged.
+- **1.1.2** — Reposted clicks keep their drag and up behind the down after a trace showed a physical up 9 ms after a timed-out release; 49 tests and lifecycle test passed.
+- **1.1.1** — Physical presses keep only the native click feel. An acceptance trace showed two three finger and two four finger presses with no app haptic, and three middle taps with three haptics; the user confirmed the feel.
+- **1.0–1.1** — Repeated middle taps without lifting the pair, three / four finger presses and no false action during three finger dragging were accepted on hardware.

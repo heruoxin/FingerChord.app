@@ -5,9 +5,9 @@ import Testing
 
 @Test func physicalClickSuppressesWholeMouseSequence() {
     var gate = ClickGate()
-    gate.physicalPress(.closeWindow, at: 1)
+    gate.physicalPress(.threePress, at: 1)
     let result = gate.mouseDown(button: 0, at: 1.01)
-    #expect(result.swallow && result.action == .closeWindow)
+    #expect(result.swallow && result.action == .threePress)
     #expect(gate.shouldSwallowDrag(button: 0))
     #expect(gate.mouseUp(button: 1) == false)
     #expect(gate.mouseUp(button: 0) == true)
@@ -20,12 +20,12 @@ import Testing
 }
 @Test func staleHardwarePressDoesNotHijackNextClick() {
     var gate = ClickGate()
-    gate.physicalPress(.quitApplication, at: 1)
+    gate.physicalPress(.fourPress, at: 1)
     #expect(!gate.mouseDown(button: 0, at: 1.2).swallow)
 }
 @Test func switchingGestureOffPreservesSuppressedUp() {
     var gate = ClickGate()
-    gate.physicalPress(.closeWindow, at: 1)
+    gate.physicalPress(.threePress, at: 1)
     #expect(gate.mouseDown(button: 1, at: 1.01).swallow)
     gate.cancelPending()
     #expect(gate.mouseUp(button: 1) == true)
@@ -37,25 +37,25 @@ import Testing
 }
 @Test func duplicateDownCannotReuseAnAction() {
     var gate = ClickGate()
-    gate.physicalPress(.quitApplication, at: 1)
-    #expect(gate.mouseDown(button: 0, at: 1.01).action == .quitApplication)
+    gate.physicalPress(.fourPress, at: 1)
+    #expect(gate.mouseDown(button: 0, at: 1.01).action == .fourPress)
     #expect(gate.mouseDown(button: 0, at: 1.02).action == nil)
 }
 @Test func pressAfterItsClickReachedAnAppStaysPlain() {
     var gate = ClickGate()
     gate.delivered(at: 1)
-    #expect(gate.physicalPress(.closeWindow, at: 1.07) == nil)
+    #expect(gate.physicalPress(.threePress, at: 1.07) == nil)
     #expect(!gate.mouseDown(button: 0, at: 1.08).swallow)
 }
 @Test func earlierDeliveredClickDoesNotBlockNextPress() {
     var gate = ClickGate()
     gate.delivered(at: 1)
-    #expect(gate.physicalPress(.closeWindow, at: 1.2) == .closeWindow)
+    #expect(gate.physicalPress(.threePress, at: 1.2) == .threePress)
     #expect(gate.mouseDown(button: 0, at: 1.21).swallow)
 }
 @Test func plainPressConsumesItsDeliveredClick() {
     var gate = ClickGate()
     gate.delivered(at: 1)
     #expect(gate.physicalPress(nil, at: 1.03) == nil)
-    #expect(gate.physicalPress(.closeWindow, at: 1.1) == .closeWindow)
+    #expect(gate.physicalPress(.threePress, at: 1.1) == .threePress)
 }

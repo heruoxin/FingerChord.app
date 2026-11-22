@@ -14,6 +14,7 @@ enum Diagnostics {
 
     static func probe() -> Int32 {
         let seconds: Double = CommandLine.arguments.contains("--observe") ? 15 : 1
+        FCSetStreaming(true)
         let count = FCStart(
             { _, _, _, _ in Diagnostics.counterLock.withLock { Diagnostics.rawFrameCount += 1 } },
             { _, _, _ in Diagnostics.counterLock.withLock { Diagnostics.buttonCount += 1 } }, nil)
@@ -27,23 +28,17 @@ enum Diagnostics {
         return count > 0 ? 0 : 1
     }
 
-    /// Tests our real event emitter while absorbing every tagged test event before applications.
+    /// Sends every gesture's events and absorbs each tagged one before it reaches an application.
     static func testEvents() -> Int32 {
         observed = []
-        guard AXIsProcessTrusted() else {
-            print("Event self-test requires Accessibility")
-            return 1
-        }
-        guard CGPreflightListenEventAccess() else {
-            print("Event self-test requires Input Monitoring and an unlocked Mac; no events sent")
-            return 1
-        }
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
-        guard session?["CGSSessionScreenIsLocked"] as? Bool != true else {
-            print("Unlock the Mac before event self-test; no events sent")
+        guard AXIsProcessTrusted(), CGPreflightListenEventAccess(),
+            session?["CGSSessionScreenIsLocked"] as? Bool != true
+        else {
+            print("Event self-test needs Accessibility, Input Monitoring and an unlocked Mac; no events sent")
             return 1
         }
-        let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .keyDown, .keyUp]
+        let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .otherMouseDown, .otherMouseUp, .keyDown, .keyUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
         guard
             let tap = CGEvent.tapCreate(
@@ -55,7 +50,11 @@ enum Diagnostics {
                     }
                     let detail = event.getIntegerValueField(
                         type == .keyDown || type == .keyUp ? .keyboardEventKeycode : .mouseEventClickState)
-                    Diagnostics.observed.append((type, event.flags, detail))
+                    Diagnostics.observed.append(
+                        (
+                            type, event.flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]),
+                            detail
+                        ))
                     return nil
                 }, userInfo: nil), let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         else {
@@ -64,25 +63,25 @@ enum Diagnostics {
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        _ = EventEmitter.send(.commandClick)
-        _ = EventEmitter.send(.commandClick)
-        _ = EventEmitter.send(.commandClick)
-        _ = EventEmitter.send(.closeWindow)
-        _ = EventEmitter.send(.quitApplication)
+        for gesture in GestureCore.Gesture.allCases { EventEmitter.send(gesture) }
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.4))
         CGEvent.tapEnable(tap: tap, enable: false)
         CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         CFMachPortInvalidate(tap)
-        let expected: [(CGEventType, Int64)] = [
-            (.leftMouseDown, 1), (.leftMouseUp, 1),
-            (.leftMouseDown, 1), (.leftMouseUp, 1),
-            (.leftMouseDown, 1), (.leftMouseUp, 1),
-            (.keyDown, 13), (.keyUp, 13), (.keyDown, 12), (.keyUp, 12),
+        let command = CGEventFlags.maskCommand
+        let tab: CGEventFlags = [.maskShift, .maskCommand]
+        let expected: [(CGEventType, CGEventFlags, Int64)] = [
+            (.leftMouseDown, command, 1), (.leftMouseUp, command, 1),
+            (.keyDown, tab, 33), (.keyUp, tab, 33),
+            (.keyDown, tab, 30), (.keyUp, tab, 30),
+            (.otherMouseDown, [], 1), (.otherMouseUp, [], 1),
+            (.keyDown, command, 13), (.keyUp, command, 13),
+            (.keyDown, command, 12), (.keyUp, command, 12),
         ]
         let valid =
             observed.count == expected.count
-            && zip(observed, expected).allSatisfy {
-                $0.0.0 == $0.1.0 && $0.0.1.contains(.maskCommand) && $0.0.2 == $0.1.1
+            && zip(observed, expected).allSatisfy { seen, wanted in
+                seen.0 == wanted.0 && seen.1 == wanted.1 && seen.2 == wanted.2
             }
         print(
             "Event self-test: \(valid ? "PASS" : "FAIL"), \(observed.count)/\(expected.count) events, all intercepted before apps"
@@ -106,11 +105,7 @@ enum Diagnostics {
             autoreleasepool {
                 let monitor = InputMonitor()
                 reference = monitor
-                var options = GestureOptions()
-                options.middleTap = false
-                options.threeFingerPress = false
-                options.fourFingerPress = false
-                monitor.setOptions(options)
+                monitor.setEnabled([])
                 if monitor.start(), monitor.isEventTapEnabled, monitor.devicesHealthy {
                     started += 1
                 } else {
@@ -166,15 +161,13 @@ enum Diagnostics {
         let permissions = CommandLine.arguments.contains("--permissions")
         model.accessibility = !permissions
         model.inputMonitoring = !permissions
-        model.running = !permissions
-        model.statusText = L10n.text(permissions ? "status.permissions" : "status.running")
-        model.loginEnabled = false
+        model.touches.snapshot.contacts = [
+            Contact(id: 1, x: 0.36, y: 0.42), Contact(id: 2, x: 0.5, y: 0.52), Contact(id: 3, x: 0.64, y: 0.42),
+        ]
         NSApp.appearance = NSAppearance(
             named: CommandLine.arguments.contains("--dark") ? .darkAqua : .aqua)
-        if let iconURL = Bundle.main.url(forResource: "FingerChord", withExtension: "icns") {
-            NSApp.applicationIconImage = NSImage(contentsOf: iconURL)
-        }
-        let view = NSHostingView(rootView: SettingsView(model: model, hide: {}, quit: {}))
+        let view = NSHostingView(
+            rootView: SettingsView(model: model, hide: {}, quit: {}).background(Color(nsColor: .windowBackgroundColor)))
         view.frame = CGRect(origin: .zero, size: view.fittingSize)
         let window = NSWindow(
             contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)

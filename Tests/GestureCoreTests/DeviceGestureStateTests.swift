@@ -14,7 +14,7 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     device.buttonHeader(isDown: true)
     #expect(device.hasPendingPress)
     let result = device.frame(four, at: 1.008)
-    #expect(result.action == .quitApplication)
+    #expect(result.action == .fourPress)
     #expect(result.physicalPress)
     #expect(!device.hasPendingPress)
 }
@@ -22,21 +22,21 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     var device = DeviceGestureState()
     _ = device.frame([], at: 1)
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 5).action == .closeWindow)
+    #expect(device.frame(three, at: 5).action == .threePress)
 }
 @Test func physicalReleaseDoesNotCreateMiddleTap() {
     var device = DeviceGestureState()
     _ = device.frame([three[0], three[2]], at: 1)
     _ = device.frame(three, at: 1.1)
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 1.15).action == .closeWindow)
+    #expect(device.frame(three, at: 1.15).action == .threePress)
     device.buttonHeader(isDown: false)
     #expect(device.frame([three[0], three[2]], at: 1.2).action == nil)
 }
 @Test func aHeldButtonCannotRepeatWhenFingerCountChanges() {
     var device = DeviceGestureState()
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 1).action == .closeWindow)
+    #expect(device.frame(three, at: 1).action == .threePress)
     #expect(device.frame(four, at: 1.01).action == nil)
     device.buttonHeader(isDown: true)
     #expect(device.frame(four, at: 1.02).action == nil)
@@ -59,29 +59,29 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 @Test func releaseWithoutContactFrameRearmsNextPhysicalPress() {
     var device = DeviceGestureState()
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 1).action == .closeWindow)
+    #expect(device.frame(three, at: 1).action == .threePress)
     // A release-only header can be the last event of an interaction.
     device.buttonHeader(isDown: false)
     #expect(device.recognizer.buttonIsDown == false)
     // The next interaction starts with another button header, before any contacts.
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 2).action == .closeWindow)
+    #expect(device.frame(three, at: 2).action == .threePress)
     device.buttonHeader(isDown: false)
     device.buttonHeader(isDown: true)
-    #expect(device.frame(four, at: 3).action == .quitApplication)
+    #expect(device.frame(four, at: 3).action == .fourPress)
 }
 
 @Test func hardwarePressWithoutNextFrameUsesFreshContactsAndReleasesImmediately() {
     var device = DeviceGestureState()
     _ = device.frame(three, at: 1)
     device.buttonHeader(isDown: true)
-    #expect(device.resolvePendingButton(at: 1.03).action == .closeWindow)
+    #expect(device.resolvePendingButton(at: 1.03).action == .threePress)
     #expect(device.resolvePendingButton(at: 1.04).action == nil)
     device.buttonHeader(isDown: false)
     #expect(!device.recognizer.buttonIsDown)
     _ = device.frame(four, at: 1.5)
     device.buttonHeader(isDown: true)
-    #expect(device.resolvePendingButton(at: 1.53).action == .quitApplication)
+    #expect(device.resolvePendingButton(at: 1.53).action == .fourPress)
 }
 
 @Test func hardwarePressWithoutFreshContactsNeverUsesOldFingerCount() {
@@ -97,9 +97,9 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     var device = DeviceGestureState()
     var gate = ClickGate()
     for (start, fingers, expected) in [
-        (37.0, three, GestureAction.closeWindow),
-        (38.57, four, .quitApplication),
-        (40.0, three, .closeWindow),
+        (37.0, three, Gesture.threePress),
+        (38.57, four, .fourPress),
+        (40.0, three, .threePress),
     ] {
         _ = device.frame(fingers, at: start)
         #expect(!gate.mouseDown(button: 0, at: start + 0.024).swallow)
@@ -129,7 +129,7 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     // Hardware down arrives at 1.055; no contact update follows before the fallback.
     device.buttonHeader(isDown: true)
     let result = device.resolvePendingButton(at: 1.067)
-    #expect(result.action == .quitApplication)
+    #expect(result.action == .fourPress)
     gate.physicalPress(result.action, at: 1.067)
     #expect(gate.mouseDown(button: 0, at: 1.081).swallow)
     #expect(gate.mouseUp(button: 0) == true)
@@ -138,7 +138,7 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 @Test func duplicateHardwareEdgeDoesNotCancelRecognizedPress() {
     var device = DeviceGestureState()
     device.buttonHeader(isDown: true)
-    #expect(device.frame(three, at: 1).action == .closeWindow)
+    #expect(device.frame(three, at: 1).action == .threePress)
     device.buttonHeader(isDown: true)
     let duplicate = device.frame(three, at: 1.01)
     #expect(!duplicate.physicalPress)
@@ -148,7 +148,19 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
 @Test func optionChangeDiscardsAnUndeliveredPress() {
     var device = DeviceGestureState()
     device.buttonHeader(isDown: true)
-    device.options.fourFingerPress = false
+    device.enabled.remove(.fourPress)
     #expect(!device.hasPendingPress)
     #expect(device.frame(three, at: 1).action == nil)
+}
+
+@Test func quickPhysicalClickIsNeverAThreeFingerTap() {
+    var device = DeviceGestureState()
+    device.enabled = [.threeTap]
+    _ = device.frame(three, at: 1)
+    device.buttonHeader(isDown: true)
+    device.buttonHeader(isDown: false)
+    #expect(device.frame([], at: 1.1).action == nil)
+    _ = device.frame(three, at: 2)
+    device.buttonHeader(isDown: true)
+    #expect(device.frame([], at: 2.1).action == nil)
 }

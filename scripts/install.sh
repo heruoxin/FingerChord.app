@@ -8,7 +8,12 @@ if pgrep -x FingerChord >/dev/null; then
     print -u2 '请先在指间设置中点“退出指间”，再运行安装脚本。'
     exit 1
 fi
-ditto dist/FingerChord.app "$destination"
-codesign --verify --strict "$destination"
+# Replace the whole bundle: merging into it would keep files a newer build no longer ships.
+staged="$destination.new"
+rm -rf "$staged"
+ditto dist/FingerChord.app "$staged"
+codesign --verify --strict "$staged"
+rm -rf "$destination"
+mv "$staged" "$destination"
 open "$destination" --args --settings
 print "已安装：$destination"

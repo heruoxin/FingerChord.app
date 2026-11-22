@@ -1,69 +1,68 @@
-<p align="center"><img src="Resources/Icon/FingerChord.png" width="112" alt="FingerChord icon"></p>
+<p align="center"><img src="docs/media/icon.png" width="128" alt="FingerChord icon"></p>
 
 # FingerChord · 指间
 
-**Three gestures. At your fingertips.** A small, native trackpad utility for macOS 27.
+Trackpad gestures for macOS 27 that turn finger chords into shortcuts. It runs in the background with no Dock or menu bar icon.
 
-[简体中文](README.md) · [GPLv3](LICENSE) · [Changelog](CHANGELOG.md)
+[简体中文](README.md) · [Changelog](CHANGELOG.md) · [GPLv3](LICENSE)
 
-| Gesture | Action |
-| --- | --- |
-| Rest your index and ring fingers; tap the middle finger between them | ⌘ click |
-| Physically press the trackpad with three fingers | ⌘W · Close window |
-| Physically press the trackpad with four fingers | ⌘Q · Quit app |
+## Gestures
 
-Independent gesture switches, haptic feedback, live contact preview, a test mode and optional launch at login. Runs without a Dock or menu bar icon; reopen the app for settings. Available in English, Simplified Chinese and Traditional Chinese, with live switching and a system default option.
+| Gesture | How | Sends | Default |
+| --- | --- | --- | --- |
+| Tap between | Rest index and ring fingers; tap the middle finger between them | ⌘-click | On |
+| Tap left | Rest two fingers; tap a finger to their left | Previous tab (⇧⌘[) | Off |
+| Tap right | Rest two fingers; tap a finger to their right | Next tab (⇧⌘]) | Off |
+| Three finger tap | Tap with three fingers at once | Middle click | Off |
+| Three finger click | Press the trackpad with three fingers | ⌘W | On |
+| Four finger click | Press the trackpad with four fingers | ⌘Q | On |
 
-## Preview
+Taps give one haptic pulse; clicks keep the trackpad’s own click feel. The resting fingers can stay down for repeated taps.
 
-<img src="docs/media/settings-en.png" width="680" alt="FingerChord settings with gesture controls, test mode and language selection">
-
-[![Gesture demo](docs/media/fingerchord-demo.gif)](docs/media/fingerchord-demo.mp4)
-
-[Watch the MP4](docs/media/fingerchord-demo.mp4). The recording shows the original version; the screenshot shows the current interface.
+<img src="docs/media/settings-en.png" width="460" alt="FingerChord settings window">
 
 ## Use
 
-1. Move the built `FingerChord.app` to Applications and open it.
-2. Allow **Accessibility** and **Input Monitoring** in System Settings → Privacy & Security. Reopen the app if macOS asks you to.
-3. When the status reads “Running in background”, try the gestures in test mode.
-4. Choose **Hide & Run** or close the window. Reopen the app to change settings, pause or quit.
+1. Build, move `FingerChord.app` to Applications and open it.
+2. Click **Allow…** and turn on Accessibility and Input Monitoring in System Settings → Privacy & Security.
+3. While the settings window is in front, gestures only show in the trackpad preview. Switch to another app and they work normally.
+4. Click **Hide** or close the window; FingerChord keeps running. Open the app again to return to settings.
 
-Test mode shows results without sending shortcuts and uses the same haptics as normal operation. Middle taps receive one app haptic; physical presses retain their native click feedback without an additional pulse. Hiding settings ends test mode. Launch at login uses `SMAppService` and is off by default on a fresh installation.
+## Limits
 
-### Behavior and compatibility
+- Three finger tap conflicts with the system’s Three Finger Drag and with Look Up set to tap with three fingers. Turn those off before enabling it.
+- ⌘-click and middle click act at the pointer; shortcuts go to the frontmost app. Keys are sent by US layout position, so other layouts may produce different characters.
+- Uses the private MultitouchSupport interface and supports macOS 27 only; OS updates may need changes. Tested on macOS 27.2.1 with the built-in Force Touch trackpad on Apple Silicon. External trackpads are untested.
+- One and two finger clicks are never delayed. A click with three or more fingers, which might become a gesture, waits at most 80 ms and then passes through.
 
-- Middle taps use relative contact positions; macOS does not identify individual fingers. Rest the outer pair before tapping. Keep that pair down for repeated taps.
-- Three / four finger gestures require a physical press, not a light tap. Holding a press does not repeat it. Shortcuts target the current app; ⌘ click uses the current cursor position.
-- Tested on **macOS 27.0 (26A428), Apple Silicon and the built-in Force Touch trackpad**. Other trackpads, nonstandard keyboard layouts and future OS versions remain unverified.
-- Uses a private system touch interface and supports macOS 27 only. OS updates may require changes. System gesture preferences are left intact.
-- One and two finger clicks and external mouse clicks are never delayed. Only clicks made with three or more contacts, which may become a gesture, wait up to 80 ms for the physical button event. Unmatched clicks pass through.
+## Footprint
+
+Everything is event-driven; nothing polls. Idle in the background it uses 0% CPU, 0 wakeups and about 10 MB of memory (an empty AppKit process takes about 8 MB).
+
+- Frames of a single finger moving the pointer are dropped in C and never reach Swift.
+- Scrolls and drags bypass FingerChord. Drags are watched only while a click is held or swallowed.
+- Closing settings hands over to a fresh background process, so the ~18 MB SwiftUI leaves behind goes away with the old one.
+- With every gesture off, trackpad and event monitoring stop entirely.
 
 ## Build
 
-Requires **macOS 27, Xcode with the macOS 27 SDK, and Swift 6.2+**. From the source directory:
+Requires macOS 27, Xcode with the macOS 27 SDK, and Swift 6.2+.
 
 ```sh
-./scripts/test.sh
-./scripts/build.sh             # dist/FingerChord.app
-./scripts/install.sh           # /Applications/FingerChord.app
-./scripts/package-release.sh  # ZIP archive and SHA-256 checksum
+./scripts/test.sh             # unit tests
+./scripts/build.sh            # build and sign dist/FingerChord.app
+./scripts/install.sh          # install to /Applications and open settings
+./scripts/package-release.sh  # ZIP and SHA-256
 ```
 
-Quit an existing instance before installing. Open `Package.swift` in Xcode for development. Swift, AppKit and SwiftUI are the only runtime requirements; the build downloads no third-party dependencies.
+The build signs with a local Developer ID / Apple Development certificate when one exists, otherwise ad-hoc. Set `FINGERCHORD_SIGN_IDENTITY` to choose one; `-` forces ad-hoc. Builds signed with the same certificate keep their system permissions; ad-hoc rebuilds may need them granted again. Local builds are not notarized.
 
-The build prefers an installed Developer ID / Apple Development certificate, falling back to ad-hoc signing. Set `FINGERCHORD_SIGN_IDENTITY` to override it (`-` forces ad-hoc signing). Keep the same install path, bundle ID and signing identity to help preserve system grants. Ad-hoc rebuilds may require permissions again. Local builds are **not notarized** and may be blocked by Gatekeeper on another Mac.
-
-[Development, diagnostics and validation](docs/DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md)
+See [development notes](docs/DEVELOPMENT.md) for architecture, diagnostics and verification, and [CONTRIBUTING](CONTRIBUTING.md) to take part.
 
 ## Privacy
 
-All recognition runs locally. No network requests, keyboard text collection or application-content recording. Settings use local UserDefaults. Diagnostics are off by default; an explicit recording captures touch coordinates, button states and status events for at most three minutes or 10,000 entries. The file is stored at `~/Library/Application Support/FingerChord/diagnostic.json` and never uploaded automatically. Recording buffers are released when capture stops; the file remains until deleted.
+Gestures are recognized on this Mac only. No network access, no keyboard input or window content is read. Settings live in local UserDefaults. Diagnostics are off by default; a manual recording keeps at most 3 minutes or 10,000 touch and button events in `~/Library/Application Support/FingerChord/diagnostic.json` and is never uploaded.
 
-## Built one-shot with GPT 6 Astra
+## Origin and license
 
-This application was built **one-shot** with the **GPT 6 Astra** model, starting from the [original prompt](docs/ORIGINAL_PROMPT.md), followed by testing and refinements on the actual Mac. The full original prompt is also included in the [Chinese README](README.md#由-gpt-6-astra-one-shot-构建).
-
-## License
-
-Original code, SVG artwork and documentation: [GNU GPL v3.0](LICENSE), `GPL-3.0-only`. Interface references and their license notices are listed in [Acknowledgments](ACKNOWLEDGMENTS.md).
+The first version was built one-shot by GPT 6 Astra from the [original prompt](docs/ORIGINAL_PROMPT.md), written after BetterTouchTool stopped working on macOS 27. Code, icon and documentation are released under [GPL-3.0-only](LICENSE); interface references and their licenses are in [Acknowledgments](ACKNOWLEDGMENTS.md).

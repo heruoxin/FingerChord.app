@@ -6,14 +6,9 @@ enum HapticFeedback {
     /// A physical press already has a native click. Adding feedback after the HID
     /// callback produces a second, delayed bump. Only light taps need an app pulse.
     static func perform(
-        for action: GestureAction,
+        for gesture: Gesture,
         using performer: () -> NSHapticFeedbackPerformer = { NSHapticFeedbackManager.defaultPerformer }
     ) {
-        guard action == .commandClick else {
-            DiagnosticTrace.record("hapticNativePress", ["action": action.rawValue])
-            return
-        }
-        performer().perform(.generic, performanceTime: .now)
-        DiagnosticTrace.record("hapticRequested", ["action": action.rawValue, "active": NSApp.isActive])
+        if !gesture.isPress { performer().perform(.generic, performanceTime: .now) }
     }
 }

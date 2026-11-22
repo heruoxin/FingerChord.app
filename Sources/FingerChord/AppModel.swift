@@ -1,32 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import AppKit
-import ApplicationServices
-import Combine
 import GestureCore
 import ServiceManagement
 
 /// Only the live preview observes contact updates; the rest of the settings view stays still.
 final class TouchFeed: ObservableObject {
     @Published var snapshot = MonitorSnapshot()
+    @Published var recognized: Gesture?
+    private var fade: DispatchWorkItem?
+
+    func show(_ gesture: Gesture) {
+        recognized = gesture
+        fade?.cancel()
+        let fade = DispatchWorkItem { [weak self] in self?.recognized = nil }
+        self.fade = fade
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: fade)
+    }
 }
 
 final class AppModel: ObservableObject {
-    @Published var middleTap: Bool {
+    @Published var gestures: Set<Gesture> {
         didSet {
-            defaults.set(middleTap, forKey: "middleTap")
-            updateOptions()
-        }
-    }
-    @Published var threePress: Bool {
-        didSet {
-            defaults.set(threePress, forKey: "threePress")
-            updateOptions()
-        }
-    }
-    @Published var fourPress: Bool {
-        didSet {
-            defaults.set(fourPress, forKey: "fourPress")
-            updateOptions()
+            for gesture in Gesture.allCases { defaults.set(gestures.contains(gesture), forKey: gesture.rawValue) }
+            monitor.setEnabled(gestures)
+            reconcile()
         }
     }
     @Published var enabled: Bool {
@@ -39,7 +36,6 @@ final class AppModel: ObservableObject {
         didSet {
             defaults.set(language.rawValue, forKey: "language")
             L10n.language = language
-            refreshActionText()
             reconcile()
             onLanguageChange?()
         }
@@ -47,22 +43,16 @@ final class AppModel: ObservableObject {
     var onLanguageChange: (() -> Void)?
     @Published var accessibility = false
     @Published var inputMonitoring = false
-    @Published var running = false
-    @Published var statusText = L10n.text("status.connecting")
+    @Published var problem: String?
     @Published var loginEnabled = false
     @Published var loginNeedsApproval = false
     @Published var loginError: String?
-    @Published var testMode = false
-    @Published var lastAction = L10n.text("result.waiting")
-    @Published var actionCount = 0
     let touches = TouchFeed()
     var settingsVisible = false
     var suspended = false
     let monitor = InputMonitor()
     private let defaults: UserDefaults
     private let monitorsInput: Bool
-    private var lastGesture: GestureAction?
-    private var actionResult = "result.waiting"
     private var deviceWatcher: DeviceWatcher?
     private var retrying = false
 
@@ -70,26 +60,16 @@ final class AppModel: ObservableObject {
         defaults = d
         self.monitorsInput = monitorsInput
         language = L10n.language
-        d.register(defaults: [
-            "middleTap": true, "threePress": true, "fourPress": true, "enabled": true,
-        ])
-        middleTap = d.bool(forKey: "middleTap")
-        threePress = d.bool(forKey: "threePress")
-        fourPress = d.bool(forKey: "fourPress")
+        var registered: [String: Any] = ["enabled": true]
+        for gesture in Gesture.allCases { registered[gesture.rawValue] = Gesture.defaults.contains(gesture) }
+        d.register(defaults: registered)
+        gestures = Set(Gesture.allCases.filter { d.bool(forKey: $0.rawValue) })
         enabled = d.bool(forKey: "enabled")
-        updateOptions()
-        monitor.onAction = { [weak self] action in self?.perform(action) }
+        monitor.setEnabled(gestures)
+        monitor.onAction = { [weak self] gesture in self?.perform(gesture) }
         guard monitorsInput else { return }
         deviceWatcher = DeviceWatcher { [weak self] in self?.reconnect() }
         reconcile()
-    }
-
-    func updateOptions() {
-        var options = GestureOptions()
-        options.middleTap = middleTap
-        options.threeFingerPress = threePress
-        options.fourFingerPress = fourPress
-        monitor.setOptions(options)
     }
 
     func reconcile() {
@@ -100,7 +80,8 @@ final class AppModel: ObservableObject {
         let screenLocked = session?["CGSSessionScreenIsLocked"] as? Bool ?? false
         if accessibility != ax { accessibility = ax }
         if inputMonitoring != input { inputMonitoring = input }
-        if !enabled || suspended || screenLocked || !ax || !input {
+        let wanted = enabled && !gestures.isEmpty && !suspended && !screenLocked && ax && input
+        if !wanted {
             if monitor.isRunning { monitor.stop() }
         } else {
             if monitor.isRunning && (!monitor.devicesHealthy || !monitor.isEventTapEnabled) {
@@ -115,25 +96,11 @@ final class AppModel: ObservableObject {
                 }
             }
         }
-        running = monitor.isRunning && monitor.isEventTapEnabled
-        if !enabled {
-            statusText = L10n.text("status.paused")
-        } else if !ax || !input {
-            statusText = L10n.text("status.permissions")
-        } else if suspended || screenLocked {
-            statusText = L10n.text("status.waiting")
-        } else if running {
-            statusText = L10n.text("status.running")
-        } else {
-            statusText = L10n.text(monitor.error ?? "status.recovering")
-        }
+        let running = monitor.isRunning && monitor.isEventTapEnabled
+        let problem = wanted && !running ? L10n.text(monitor.error ?? "status.connecting") : nil
+        if self.problem != problem { self.problem = problem }
         refreshLoginStatus()
-        DiagnosticTrace.record(
-            "status",
-            [
-                "running": running, "ax": ax, "input": input, "devices": monitor.deviceCount,
-                "status": statusText,
-            ])
+        DiagnosticTrace.record("status", ["running": running, "ax": ax, "input": input])
     }
 
     func reconnect() {
@@ -151,8 +118,8 @@ final class AppModel: ObservableObject {
 
     func hideSettings() {
         settingsVisible = false
-        testMode = false
         monitor.observe(nil)
+        touches.snapshot = MonitorSnapshot()
     }
 
     func requestAccessibility() {
@@ -167,9 +134,7 @@ final class AppModel: ObservableObject {
     }
 
     private func openPrivacy(_ pane: String) {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
     }
 
     func refreshLoginStatus() {
@@ -194,42 +159,13 @@ final class AppModel: ObservableObject {
 
     func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
 
-    private func perform(_ action: GestureAction) {
-        DiagnosticTrace.record(
-            "perform",
-            [
-                "action": action.rawValue, "running": running, "enabled": enabled,
-                "suspended": suspended, "test": testMode && settingsVisible,
-            ])
-        guard running, enabled, !suspended else { return }
-        if action == .commandClick && !middleTap { return }
-        if action == .closeWindow && !threePress { return }
-        if action == .quitApplication && !fourPress { return }
-        HapticFeedback.perform(for: action)
-        lastGesture = action
-        if testMode && settingsVisible {
-            actionResult = "result.recognized"
-        } else if EventEmitter.send(action) {
-            actionResult = "result.sent"
-        } else {
-            actionResult = "result.failed"
-            refreshActionText()
-            reconcile()
-            return
-        }
-        refreshActionText()
-        actionCount += 1
-    }
-
-    private func refreshActionText() {
-        let name: String
-        switch lastGesture {
-        case .commandClick: name = L10n.text("result.click")
-        case .closeWindow: name = L10n.text("result.close")
-        case .quitApplication: name = L10n.text("result.quit")
-        case nil: name = ""
-        }
-        lastAction = L10n.text(actionResult, name)
+    /// While the settings window is in front, gestures are shown instead of sent:
+    /// ⌘W and ⌘Q would otherwise close or quit this very window.
+    private func perform(_ gesture: Gesture) {
+        DiagnosticTrace.record("perform", ["gesture": gesture.rawValue, "settings": settingsVisible])
+        HapticFeedback.perform(for: gesture)
+        if settingsVisible { touches.show(gesture) }
+        if !settingsVisible || !NSApp.isActive { EventEmitter.send(gesture) }
     }
 
     func shutdown() {

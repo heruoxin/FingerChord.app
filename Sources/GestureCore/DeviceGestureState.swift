@@ -6,11 +6,11 @@ import Foundation
 public struct DeviceGestureState {
     public private(set) var recognizer = GestureRecognizer()
     private var pendingButton: Bool?
-    public var options: GestureOptions {
-        get { recognizer.options }
+    public var enabled: Set<Gesture> {
+        get { recognizer.enabled }
         set {
-            if recognizer.options != newValue { pendingButton = nil }
-            recognizer.options = newValue
+            if recognizer.enabled != newValue { pendingButton = nil }
+            recognizer.enabled = newValue
         }
     }
     public init() {}
@@ -30,7 +30,7 @@ public struct DeviceGestureState {
     /// Hardware values arrive separately from contacts. If no new contact frame follows,
     /// resolve against the latest fresh frame without inventing a touch update.
     public mutating func resolvePendingButton(at time: Double) -> (
-        action: GestureAction?, physicalPress: Bool
+        action: Gesture?, physicalPress: Bool
     ) {
         guard let down = pendingButton else { return (nil, false) }
         pendingButton = nil
@@ -38,7 +38,7 @@ public struct DeviceGestureState {
     }
 
     public mutating func frame(_ contacts: [Contact], at time: Double) -> (
-        action: GestureAction?, physicalPress: Bool
+        action: Gesture?, physicalPress: Bool
     ) {
         let pending = pendingButton
         pendingButton = nil

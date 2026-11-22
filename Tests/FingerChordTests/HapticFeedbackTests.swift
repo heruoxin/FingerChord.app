@@ -19,7 +19,7 @@ private final class RecordingPerformer: NSObject, NSHapticFeedbackPerformer {
 @Test @MainActor func physicalPressesDoNotRequestAnAdditionalHaptic() {
     let performer = RecordingPerformer()
     var acquisitions = 0
-    for action in [GestureAction.closeWindow, .quitApplication, .closeWindow, .quitApplication] {
+    for action in [Gesture.threePress, .fourPress, .threePress, .fourPress] {
         HapticFeedback.perform(for: action) {
             acquisitions += 1
             return performer
@@ -29,9 +29,10 @@ private final class RecordingPerformer: NSObject, NSHapticFeedbackPerformer {
     #expect(performer.requests.isEmpty)
 }
 
-@Test @MainActor func repeatedMiddleTapsEachRequestOneImmediateHaptic() {
+@Test @MainActor func everyTapRequestsOneImmediateHaptic() {
     let performer = RecordingPerformer()
-    for _ in 0..<5 { HapticFeedback.perform(for: .commandClick) { performer } }
-    #expect(performer.requests.count == 5)
+    let taps = Gesture.allCases.filter { !$0.isPress }
+    for gesture in taps + taps { HapticFeedback.perform(for: gesture) { performer } }
+    #expect(performer.requests.count == taps.count * 2)
     #expect(performer.requests.allSatisfy { $0.0 == .generic && $0.1 == .now })
 }
