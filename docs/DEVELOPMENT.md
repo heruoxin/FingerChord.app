@@ -74,7 +74,7 @@ Traces live in `~/Library/Application Support/FingerChord/diagnostic.json` with 
 
 ## Icon and media
 
-`Resources/AppIcon.svg` is the icon source: a solid ⌘ key and a frosted glass trackpad, in the same layered style as まだまだ and FilterBox. The frost is the scene blurred and overlaid with 50% white, clipped to the glass. `./scripts/make-icon.sh` renders it with headless Chrome at 2× and writes the PNGs in `Resources/AppIcon.xcassets`, which `build.sh` compiles with `actool`. macOS masks the full-bleed square to its icon shape. `docs/media/icon.png` is the installed icon as `NSWorkspace` draws it.
+`Resources/AppIcon.svg` is the icon source: a frosted glass hand on a solid trackpad, the middle finger tapping. The frost is the scene blurred and overlaid with 80% white, clipped to the hand, so the fingers pick up the trackpad colour and fade where they cross its edge. `./scripts/make-icon.sh` renders it with headless Chrome at 2× and writes the PNGs in `Resources/AppIcon.xcassets`, which `build.sh` compiles with `actool`. macOS masks the full-bleed square to its icon shape. `docs/media/icon.png` is the installed icon as `NSWorkspace` draws it.
 
 README screenshots are `screencapture -o -l <window id>` captures of the real settings window. For quick layout checks without touching preferences or input:
 

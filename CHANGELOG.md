@@ -2,7 +2,7 @@
 
 ## 1.3.0 — 2026-11-23
 
-- New icon: a solid ⌘ key and a frosted glass trackpad with a middle finger tap, drawn in the same layered style as まだまだ and FilterBox.
+- New icon: a frosted glass hand on a trackpad, the middle finger tapping.
 - Redesigned settings: one column, a fingertip diagram per gesture, no descriptions. Gestures are previewed instead of sent while the window is in front, which replaces test mode.
 - Rewritten copy in all three languages, using the system’s own terms for click and tap.
 - Scrolls are no longer tapped, drags only while a click is held, and single-finger pointer frames are dropped before Swift. Middle taps detect a moving pair from contact motion.
