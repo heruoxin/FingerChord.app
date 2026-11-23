@@ -29,10 +29,9 @@ private final class RecordingPerformer: NSObject, NSHapticFeedbackPerformer {
     #expect(performer.requests.isEmpty)
 }
 
-@Test @MainActor func everyTapRequestsOneImmediateHaptic() {
+@Test @MainActor func repeatedMiddleTapsEachRequestOneImmediateHaptic() {
     let performer = RecordingPerformer()
-    let taps = Gesture.allCases.filter { !$0.isPress }
-    for gesture in taps + taps { HapticFeedback.perform(for: gesture) { performer } }
-    #expect(performer.requests.count == taps.count * 2)
+    for _ in 0..<5 { HapticFeedback.perform(for: .middleTap) { performer } }
+    #expect(performer.requests.count == 5)
     #expect(performer.requests.allSatisfy { $0.0 == .generic && $0.1 == .now })
 }

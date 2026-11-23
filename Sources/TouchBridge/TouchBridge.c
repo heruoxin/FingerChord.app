@@ -7,7 +7,6 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 // ABI declarations, checked against the framework in macOS 27.0 (26A428).
 typedef struct { float x, y; } MTPoint;
@@ -48,22 +47,18 @@ static FCFrameCallback frameSink;
 static FCButtonCallback buttonSink;
 static void *sinkContext;
 static bool streamAll;
-static struct { Device device; int32_t count; uint64_t since; } lastCounts[16];
+static struct { Device device; int32_t count; } lastCounts[16];
 static pthread_mutex_t sinkLock = PTHREAD_MUTEX_INITIALIZER;
 static char errorText[256];
 
-// Caller holds sinkLock. One finger moving is just the pointer: skip it once 300 ms
-// have passed since the count last changed, long enough for any tap to finish.
-static bool worthDelivering(Device device, int32_t count) {
-    uint64_t now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+// Caller holds sinkLock.
+static bool countChanged(Device device, int32_t count) {
     for (int i = 0; i < 16; i++) {
         if (lastCounts[i].device && lastCounts[i].device != device) continue;
-        if (!lastCounts[i].device || lastCounts[i].count != count) {
-            lastCounts[i].device = device;
-            lastCounts[i].count = count;
-            lastCounts[i].since = now;
-        }
-        return count > 1 || now - lastCounts[i].since < 300000000;
+        bool changed = !lastCounts[i].device || lastCounts[i].count != count;
+        lastCounts[i].device = device;
+        lastCounts[i].count = count;
+        return changed;
     }
     return true;
 }
@@ -80,7 +75,8 @@ static void onFrame(Device device, RawTouch *touches, int32_t count, double time
             copied[touching++] = (FCContact){ touches[i].identifier, point.x, point.y };
     }
     pthread_mutex_lock(&sinkLock);
-    if (frameSink && (worthDelivering(device, touching) || streamAll))
+    // One moving finger is just the pointer: nothing to recognize until the count changes.
+    if (frameSink && (countChanged(device, touching) || touching > 1 || streamAll))
         frameSink((uintptr_t)device, copied, touching, sinkContext);
     pthread_mutex_unlock(&sinkLock);
 }

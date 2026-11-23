@@ -13,8 +13,7 @@ typedef void (*FCFrameCallback)(uintptr_t device, const FCContact *contacts, int
 typedef void (*FCButtonCallback)(uintptr_t device, bool down, void *context);
 
 // Start/stop are called on the main run loop. Callbacks may arrive on framework threads.
-// Frames carry touching contacts only. Without streaming, a count of one or zero is skipped
-// once it has held for 300 ms.
+// Frames carry touching contacts only. Without streaming, an unchanged count of one or zero is skipped.
 int32_t FCStart(FCFrameCallback frames, FCButtonCallback buttons, void *context);
 void FCStop(void);
 void FCSetStreaming(bool streaming);

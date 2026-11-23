@@ -8,16 +8,13 @@ Trackpad gestures for macOS 27 that turn finger chords into shortcuts. It runs i
 
 ## Gestures
 
-| Gesture | How | Sends | Default |
-| --- | --- | --- | --- |
-| Tap between | Rest index and ring fingers; tap the middle finger between them | ⌘-click | On |
-| Tap left | Rest two fingers; tap a finger to their left | Previous tab (⇧⌘[) | Off |
-| Tap right | Rest two fingers; tap a finger to their right | Next tab (⇧⌘]) | Off |
-| Three finger tap | Tap with three fingers at once | Middle click | Off |
-| Three finger click | Press the trackpad with three fingers | ⌘W | On |
-| Four finger click | Press the trackpad with four fingers | ⌘Q | On |
+| Gesture | How | Sends |
+| --- | --- | --- |
+| Tap between | Rest index and ring fingers; tap the middle finger between them | ⌘-click |
+| Three finger click | Press the trackpad with three fingers | ⌘W |
+| Four finger click | Press the trackpad with four fingers | ⌘Q |
 
-Taps give one haptic pulse; clicks keep the trackpad’s own click feel. The resting fingers can stay down for repeated taps.
+Each gesture can be turned off. Taps give one haptic pulse; clicks keep the trackpad’s own click feel. The resting fingers can stay down for repeated taps.
 
 <img src="docs/media/settings-en.png" width="460" alt="FingerChord settings window">
 
@@ -30,8 +27,7 @@ Taps give one haptic pulse; clicks keep the trackpad’s own click feel. The res
 
 ## Limits
 
-- Three finger tap conflicts with the system’s Three Finger Drag and with Look Up set to tap with three fingers. Turn those off before enabling it.
-- ⌘-click and middle click act at the pointer; shortcuts go to the frontmost app. Keys are sent by US layout position, so other layouts may produce different characters.
+- ⌘-click acts at the pointer; shortcuts go to the frontmost app. Keys are sent by US layout position, so other layouts may produce different characters.
 - Uses the private MultitouchSupport interface and supports macOS 27 only; OS updates may need changes. Tested on macOS 27.2.1 with the built-in Force Touch trackpad on Apple Silicon. External trackpads are untested.
 - One and two finger clicks are never delayed. A click with three or more fingers, which might become a gesture, waits at most 80 ms and then passes through.
 
@@ -51,7 +47,7 @@ Requires macOS 27, Xcode with the macOS 27 SDK, and Swift 6.2+.
 ```sh
 ./scripts/test.sh             # unit tests
 ./scripts/build.sh            # build and sign dist/FingerChord.app
-./scripts/install.sh          # install to /Applications and open settings
+./scripts/install.sh          # build, move into /Applications, open settings
 ./scripts/package-release.sh  # ZIP and SHA-256
 ```
 

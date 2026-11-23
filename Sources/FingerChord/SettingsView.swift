@@ -4,12 +4,7 @@ import SwiftUI
 
 private typealias Gesture = GestureCore.Gesture
 
-private let accent = Color(
-    nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.61, green: 0.42, blue: 1, alpha: 1)
-            : NSColor(srgbRed: 0.48, green: 0.31, blue: 0.91, alpha: 1)
-    })
+private let accent = Color.indigo
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
@@ -114,9 +109,6 @@ private struct GestureGlyph: View {
     private var fingers: [Finger] {
         switch gesture {
         case .middleTap: [.rest, .tap, .rest]
-        case .leftTap: [.tap, .rest, .rest]
-        case .rightTap: [.rest, .rest, .tap]
-        case .threeTap: [.tap, .tap, .tap]
         case .threePress: [.press, .press, .press]
         case .fourPress: [.press, .press, .press, .press]
         }

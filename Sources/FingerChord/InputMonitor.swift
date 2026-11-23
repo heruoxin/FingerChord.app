@@ -16,7 +16,7 @@ final class InputMonitor {
     private var clickGates: [UInt64: ClickGate] = [:]
     private var senders: Set<UInt64> = []
     private var deviceSenders: [UInt: UInt64] = [:]
-    private var enabled = Gesture.defaults
+    private var enabled = Set(Gesture.allCases)
     private var observer: ((MonitorSnapshot) -> Void)?
     private var previewQueued = false
     // Mouse events and MultitouchSupport are delivered independently. Buffer button-down events
@@ -171,9 +171,8 @@ final class InputMonitor {
             if sender != 0 {
                 deviceSenders[device] = sender
                 senders.insert(sender)
-                // Chord taps can produce a system click too; the gate swallows it like a press.
-                // A three finger tap has no click of its own, so it must not claim the next one.
-                if result.physicalPress || (action != nil && action != .threeTap) {
+                // A middle tap can produce a system click too; the gate swallows it like a press.
+                if result.physicalPress || action != nil {
                     action = clickGates[sender, default: ClickGate()].physicalPress(action, at: now)
                 }
             }

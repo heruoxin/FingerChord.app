@@ -61,7 +61,7 @@ final class AppModel: ObservableObject {
         self.monitorsInput = monitorsInput
         language = L10n.language
         var registered: [String: Any] = ["enabled": true]
-        for gesture in Gesture.allCases { registered[gesture.rawValue] = Gesture.defaults.contains(gesture) }
+        for gesture in Gesture.allCases { registered[gesture.rawValue] = true }
         d.register(defaults: registered)
         gestures = Set(Gesture.allCases.filter { d.bool(forKey: $0.rawValue) })
         enabled = d.bool(forKey: "enabled")

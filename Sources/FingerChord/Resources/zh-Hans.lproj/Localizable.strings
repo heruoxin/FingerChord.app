@@ -7,15 +7,9 @@
 "preview.placeholder" = "试试手势";
 "preview.ax" = "触控板，%ld 个触点";
 "gesture.middleTap" = "指间轻点";
-"gesture.leftTap" = "左侧轻点";
-"gesture.rightTap" = "右侧轻点";
-"gesture.threeTap" = "三指轻点";
 "gesture.threePress" = "三指点按";
 "gesture.fourPress" = "四指点按";
 "action.middleTap" = "⌘ 点按";
-"action.leftTap" = "上一个标签页";
-"action.rightTap" = "下一个标签页";
-"action.threeTap" = "中键点按";
 "action.threePress" = "⌘W";
 "action.fourPress" = "⌘Q";
 "login" = "登录时打开";

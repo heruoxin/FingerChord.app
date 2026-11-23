@@ -15,15 +15,14 @@ public struct Contact: Equatable, Sendable, Identifiable {
 }
 
 public enum Gesture: String, CaseIterable, Sendable {
-    case middleTap, leftTap, rightTap, threeTap, threePress, fourPress
+    case middleTap, threePress, fourPress
 
-    public static let defaults: Set<Gesture> = [.middleTap, .threePress, .fourPress]
-    public var isPress: Bool { self == .threePress || self == .fourPress }
+    public var isPress: Bool { self != .middleTap }
 }
 
 /// One recognizer per touch surface. All times are monotonic seconds supplied by the caller.
 public struct GestureRecognizer: Sendable {
-    public var enabled = Gesture.defaults {
+    public var enabled = Set(Gesture.allCases) {
         didSet { if enabled != oldValue { reset() } }
     }
     public private(set) var contacts: [Contact] = []
@@ -31,25 +30,15 @@ public struct GestureRecognizer: Sendable {
     public private(set) var buttonIsDown = false
     private var anchors: [Contact] = []
     private var anchorsSince: Double = 0
-    private var tap: (finger: Contact, gesture: Gesture, since: Double)?
+    private var middle: (finger: Contact, since: Double)?
     private var lastTap: Double = -.infinity
-    private var burst = Burst()
-
-    /// Three fingers that land together, stay put and lift together.
-    private struct Burst: Sendable {
-        var start: Double = 0
-        var landed: Double?
-        var origins: [Int32: Contact] = [:]
-        var live = false
-    }
 
     public init() {}
 
     public mutating func reset() {
         contacts = []
         anchors = []
-        tap = nil
-        burst = Burst()
+        middle = nil
         lastFrameTime = -.infinity
         buttonIsDown = false
         lastTap = -.infinity
@@ -74,43 +63,33 @@ public struct GestureRecognizer: Sendable {
         return isDown ? pressAction(at: time) : nil
     }
 
-    /// Any button edge or broken chord also ends a three finger tap in progress.
     public mutating func cancelTap() {
-        tap = nil
+        middle = nil
         anchors = []
-        burst.live = false
     }
 
     @discardableResult
     public mutating func update(_ newContacts: [Contact], at time: Double) -> Gesture? {
         // A broken stream must never preserve a chord or use a stale finger count.
-        let broken = time < lastFrameTime || time - lastFrameTime > 0.25
-        if broken { cancelTap() }
-        let began = contacts.isEmpty
+        if time < lastFrameTime || time - lastFrameTime > 0.25 { cancelTap() }
         contacts = newContacts
         lastFrameTime = time
-        if buttonIsDown { return nil }
-        return chord(at: time) ?? threeFingerTap(began: began, at: time)
-    }
-
-    private mutating func chord(at time: Double) -> Gesture? {
-        guard !enabled.isDisjoint(with: [.middleTap, .leftTap, .rightTap]) else { return nil }
-        if let tap {
+        guard enabled.contains(.middleTap), !buttonIsDown else { return nil }
+        if let middle {
             guard anchorsHeld(within: 0.045) else {
                 cancelTap()
                 return nil
             }
-            let elapsed = time - tap.since
+            let elapsed = time - middle.since
             if contacts.count == 2 {
-                self.tap = nil
+                self.middle = nil
                 rest(at: time)
                 guard elapsed >= 0.025, elapsed <= 0.26, time - lastTap >= 0.18 else { return nil }
                 lastTap = time
-                burst.live = false
-                return tap.gesture
+                return .middleTap
             }
             if contacts.count != 3 || elapsed > 0.26
-                || !contacts.contains(where: { $0.id == tap.finger.id && $0.distance(to: tap.finger) < 0.04 })
+                || !contacts.contains(where: { $0.id == middle.finger.id && $0.distance(to: middle.finger) < 0.04 })
             {
                 cancelTap()
             }
@@ -122,45 +101,21 @@ public struct GestureRecognizer: Sendable {
             if !anchorsHeld(within: 0.015) { rest(at: time) }
         case 3 where time - anchorsSince >= 0.08 && anchorsHeld(within: 0.045):
             let finger = contacts.first { contact in !anchors.contains { $0.id == contact.id } }!
-            if let gesture = side(of: finger), enabled.contains(gesture) {
-                tap = (finger, gesture, time)
-            } else {
-                cancelTap()
-            }
+            if isBetweenAnchors(finger) { middle = (finger, time) } else { cancelTap() }
         default:
             anchors = []
         }
         return nil
     }
 
-    private func side(of finger: Contact) -> Gesture? {
+    /// Both hands work. The new finger must be horizontally between the resting fingers.
+    private func isBetweenAnchors(_ finger: Contact) -> Bool {
         let left = anchors[0]
         let right = anchors[1]
         let span = right.x - left.x
-        guard span >= 0.065, span <= 0.65, abs(finger.y - (left.y + right.y) / 2) <= 0.30 else { return nil }
-        if finger.x > left.x + span * 0.13 && finger.x < right.x - span * 0.13 { return .middleTap }
-        if (0.04...0.4).contains(left.x - finger.x) { return .leftTap }
-        if (0.04...0.4).contains(finger.x - right.x) { return .rightTap }
-        return nil
-    }
-
-    private mutating func threeFingerTap(began: Bool, at time: Double) -> Gesture? {
-        if began { burst = Burst(start: time, live: enabled.contains(.threeTap)) }
-        guard burst.live else { return nil }
-        for contact in contacts {
-            if let origin = burst.origins[contact.id] {
-                if contact.distance(to: origin) > 0.03 { burst.live = false }
-            } else {
-                burst.origins[contact.id] = contact
-            }
-        }
-        if contacts.count == 3 && burst.landed == nil { burst.landed = time }
-        if burst.origins.count > 3 || time - burst.start > 0.3 || (burst.landed ?? burst.start) - burst.start > 0.07 {
-            burst.live = false
-        }
-        guard burst.live, contacts.isEmpty, burst.landed != nil else { return nil }
-        burst.live = false
-        return .threeTap
+        return span >= 0.065 && span <= 0.65
+            && finger.x > left.x + span * 0.13 && finger.x < right.x - span * 0.13
+            && abs(finger.y - (left.y + right.y) / 2) <= 0.30
     }
 
     private mutating func rest(at time: Double) {

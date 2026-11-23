@@ -7,15 +7,9 @@
 "preview.placeholder" = "Try a gesture";
 "preview.ax" = "Trackpad, %ld contacts";
 "gesture.middleTap" = "Tap between";
-"gesture.leftTap" = "Tap left";
-"gesture.rightTap" = "Tap right";
-"gesture.threeTap" = "Three finger tap";
 "gesture.threePress" = "Three finger click";
 "gesture.fourPress" = "Four finger click";
 "action.middleTap" = "⌘-click";
-"action.leftTap" = "Previous tab";
-"action.rightTap" = "Next tab";
-"action.threeTap" = "Middle click";
 "action.threePress" = "⌘W";
 "action.fourPress" = "⌘Q";
 "login" = "Open at login";

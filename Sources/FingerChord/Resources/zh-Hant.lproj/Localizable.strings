@@ -7,15 +7,9 @@
 "preview.placeholder" = "試試手勢";
 "preview.ax" = "觸控式軌跡板，%ld 個觸點";
 "gesture.middleTap" = "指間點一下";
-"gesture.leftTap" = "左側點一下";
-"gesture.rightTap" = "右側點一下";
-"gesture.threeTap" = "三指點一下";
 "gesture.threePress" = "三指按一下";
 "gesture.fourPress" = "四指按一下";
 "action.middleTap" = "⌘ 按一下";
-"action.leftTap" = "上一個標籤頁";
-"action.rightTap" = "下一個標籤頁";
-"action.threeTap" = "按一下中鍵";
 "action.threePress" = "⌘W";
 "action.fourPress" = "⌘Q";
 "login" = "登入時打開";

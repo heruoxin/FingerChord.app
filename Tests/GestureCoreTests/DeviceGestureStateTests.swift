@@ -152,15 +152,3 @@ private let four = three + [Contact(id: 4, x: 0.8, y: 0.4)]
     #expect(!device.hasPendingPress)
     #expect(device.frame(three, at: 1).action == nil)
 }
-
-@Test func quickPhysicalClickIsNeverAThreeFingerTap() {
-    var device = DeviceGestureState()
-    device.enabled = [.threeTap]
-    _ = device.frame(three, at: 1)
-    device.buttonHeader(isDown: true)
-    device.buttonHeader(isDown: false)
-    #expect(device.frame([], at: 1.1).action == nil)
-    _ = device.frame(three, at: 2)
-    device.buttonHeader(isDown: true)
-    #expect(device.frame([], at: 2.1).action == nil)
-}

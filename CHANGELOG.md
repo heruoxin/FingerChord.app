@@ -2,14 +2,13 @@
 
 ## 1.3.0 — 2026-11-23
 
-- New optional gestures, off by default: tap left / right of two resting fingers for the previous / next tab (⇧⌘[ / ⇧⌘]), and a three finger tap for a middle click.
-- New icon: a ⌘ key behind a frosted glass trackpad, built as an Icon Composer document with light, dark and tinted appearances.
+- New icon: a solid ⌘ key and a frosted glass trackpad with a middle finger tap, drawn in the same layered style as まだまだ and FilterBox.
 - Redesigned settings: one column, a fingertip diagram per gesture, no descriptions. Gestures are previewed instead of sent while the window is in front, which replaces test mode.
 - Rewritten copy in all three languages, using the system’s own terms for click and tap.
-- Scrolls are no longer tapped, drags only while a click is held, and single-finger pointer frames are dropped before Swift. Chord taps now detect a moving pair from contact motion.
+- Scrolls are no longer tapped, drags only while a click is held, and single-finger pointer frames are dropped before Swift. Middle taps detect a moving pair from contact motion.
 - Closing settings hands over to a fresh background process, returning to about 10 MB instead of keeping ~28 MB.
 - Monitoring stops entirely when every gesture is off.
-- `install.sh` replaces the installed bundle instead of merging into it.
+- `install.sh` moves the build into Applications, so no second copy stays in `dist` for Spotlight to list.
 
 ## 1.2.0 — 2026-11-23
 
