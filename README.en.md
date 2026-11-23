@@ -4,7 +4,9 @@
 
 Trackpad gestures for macOS 27 that turn finger chords into shortcuts. It runs in the background with no Dock or menu bar icon.
 
-[简体中文](README.md) · [Changelog](CHANGELOG.md) · [GPLv3](LICENSE)
+**[Download FingerChord.dmg](https://github.com/heruoxin/FingerChord.app/releases/latest/download/FingerChord.dmg)** · Requires macOS 27
+
+[Website](https://heruoxin.github.io/FingerChord.app/en/) · [简体中文](README.md) · [Changelog](CHANGELOG.md) · [GPLv3](LICENSE)
 
 ## Gestures
 
@@ -20,7 +22,7 @@ Each gesture can be turned off. Taps give one haptic pulse; clicks keep the trac
 
 ## Use
 
-1. Build, move `FingerChord.app` to Applications and open it.
+1. Open the DMG, drag FingerChord to Applications and open it.
 2. Click **Allow…** and turn on Accessibility and Input Monitoring in System Settings → Privacy & Security.
 3. While the settings window is in front, gestures only show in the trackpad preview. Switch to another app and they work normally.
 4. Click **Hide** or close the window; FingerChord keeps running. Open the app again to return to settings.
@@ -48,10 +50,13 @@ Requires macOS 27, Xcode with the macOS 27 SDK, and Swift 6.2+.
 ./scripts/test.sh             # unit tests
 ./scripts/build.sh            # build and sign dist/FingerChord.app
 ./scripts/install.sh          # build, move into /Applications, open settings
-./scripts/package-release.sh  # ZIP and SHA-256
+./scripts/package-release.sh  # notarized dist/FingerChord.dmg and SHA-256
+./scripts/build-site.py       # website, written to .build/site
 ```
 
-The build signs with a local Developer ID / Apple Development certificate when one exists, otherwise ad-hoc. Set `FINGERCHORD_SIGN_IDENTITY` to choose one; `-` forces ad-hoc. Builds signed with the same certificate keep their system permissions; ad-hoc rebuilds may need them granted again. Local builds are not notarized.
+The build signs with a local Developer ID / Apple Development certificate when one exists, otherwise ad-hoc. Set `FINGERCHORD_SIGN_IDENTITY` to choose one; `-` forces ad-hoc. Builds signed with the same certificate keep their system permissions; ad-hoc rebuilds may need them granted again.
+
+Packaging needs [create-dmg](https://github.com/create-dmg/create-dmg) and a Developer ID certificate. Notarization credentials live only in the local keychain: run `xcrun notarytool store-credentials FingerChord` once and the script reads that profile; `FINGERCHORD_NOTARY_PROFILE` selects another.
 
 See [development notes](docs/DEVELOPMENT.md) for architecture, diagnostics and verification, and [CONTRIBUTING](CONTRIBUTING.md) to take part.
 

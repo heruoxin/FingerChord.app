@@ -4,7 +4,9 @@
 
 macOS 27 的触控板手势工具：把手指组合变成快捷键。常驻后台，没有 Dock 和菜单栏图标。
 
-[English](README.en.md) · [更新记录](CHANGELOG.md) · [GPLv3](LICENSE)
+**[下载 FingerChord.dmg](https://github.com/heruoxin/FingerChord.app/releases/latest/download/FingerChord.dmg)** · 需要 macOS 27
+
+[官网](https://heruoxin.github.io/FingerChord.app/) · [English](README.en.md) · [更新记录](CHANGELOG.md) · [GPLv3](LICENSE)
 
 ## 手势
 
@@ -20,7 +22,7 @@ macOS 27 的触控板手势工具：把手指组合变成快捷键。常驻后�
 
 ## 使用
 
-1. 构建后把 `FingerChord.app` 放进「应用程序」，打开。
+1. 打开下载的 DMG，把指间拖进「应用程序」后启动。
 2. 点「允许…」，在 系统设置 → 隐私与安全性 里打开「辅助功能」和「输入监控」。
 3. 设置窗口在前台时，手势只显示在触控板预览里，不会发送；切到别的 App 就正常生效。
 4. 点「隐藏」或关闭窗口，指间留在后台。再次打开 App 回到设置。
@@ -48,10 +50,13 @@ macOS 27 的触控板手势工具：把手指组合变成快捷键。常驻后�
 ./scripts/test.sh             # 单元测试
 ./scripts/build.sh            # 构建并签名 dist/FingerChord.app
 ./scripts/install.sh          # 构建后移入 /Applications 并打开设置
-./scripts/package-release.sh  # ZIP 与 SHA-256
+./scripts/package-release.sh  # 公证过的 dist/FingerChord.dmg 与 SHA-256
+./scripts/build-site.py       # 官网，输出到 .build/site
 ```
 
-构建优先用本机的 Developer ID / Apple Development 证书，没有就用 ad-hoc 签名。`FINGERCHORD_SIGN_IDENTITY` 可以指定身份，设为 `-` 强制 ad-hoc。用同一张证书签名，系统授权会保留；ad-hoc 每次重新构建后可能要重新授权。本地产物未经公证。
+构建优先用本机的 Developer ID / Apple Development 证书，没有就用 ad-hoc 签名。`FINGERCHORD_SIGN_IDENTITY` 可以指定身份，设为 `-` 强制 ad-hoc。用同一张证书签名，系统授权会保留；ad-hoc 每次重新构建后可能要重新授权。
+
+打包需要 [create-dmg](https://github.com/create-dmg/create-dmg) 和 Developer ID 证书。公证凭据只存在本机钥匙串：先运行一次 `xcrun notarytool store-credentials FingerChord`，之后脚本按配置名读取；`FINGERCHORD_NOTARY_PROFILE` 可以换用别的配置名。
 
 架构、诊断和验证记录见 [开发文档](docs/DEVELOPMENT.md)，参与方式见 [CONTRIBUTING](CONTRIBUTING.md)。
 

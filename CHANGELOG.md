@@ -9,6 +9,7 @@
 - Closing settings hands over to a fresh background process, returning to about 10 MB instead of keeping ~28 MB.
 - Monitoring stops entirely when every gesture is off.
 - `install.sh` moves the build into Applications, so no second copy stays in `dist` for Spotlight to list.
+- Downloads as a notarized DMG. The website runs on GitHub Pages in three languages.
 
 ## 1.2.0 — 2026-11-23
 

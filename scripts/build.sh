@@ -33,7 +33,10 @@ if [[ -z "$sign_identity" ]]; then
     fi
 fi
 sign_identity=${sign_identity:--}
-codesign --force --sign "$sign_identity" --options runtime --timestamp=none "$app_path"
+timestamp=--timestamp=none
+# Notarization requires a secure timestamp; local builds skip the network round trip.
+[[ ${1:-} == --release ]] && timestamp=--timestamp
+codesign --force --sign "$sign_identity" --options runtime $timestamp "$app_path"
 codesign --verify --strict --verbose=2 "$app_path"
 # Replace only the generated bundle after a successful build and signature check.
 rm -rf "$PWD/dist/FingerChord.app"

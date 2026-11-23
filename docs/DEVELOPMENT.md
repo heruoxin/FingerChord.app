@@ -85,6 +85,22 @@ app=/Applications/FingerChord.app/Contents/MacOS/FingerChord
 
 The offscreen render draws switches in their inactive-window style.
 
+## Release
+
+`./scripts/package-release.sh` builds with a secure timestamp, lays the app out over `Resources/DMGBackground.png` (rendered by `make-icon.sh`), signs the image with Developer ID, notarizes it with the keychain profile `FingerChord` and staples the ticket. Credentials never enter the repository; `xcrun notarytool store-credentials FingerChord` saves them once per Mac. The asset keeps one name across versions, so README and website link to `releases/latest/download/FingerChord.dmg`.
+
+```sh
+./scripts/package-release.sh
+spctl -a -t open --context context:primary-signature -vv dist/FingerChord.dmg   # source=Notarized Developer ID
+gh release create v1.3.0 dist/FingerChord.dmg dist/FingerChord.dmg.sha256 --title 1.3.0 --notes-file notes.md
+```
+
+## Website
+
+`site/` holds the template, copy in three languages, CSS and JS. `scripts/build-site.py` writes a static site to `.build/site` with `zh-Hans` at the root plus `en/` and `zh-Hant/`, using relative links only, so it works opened as a file, under the GitHub Pages subpath and on a custom domain. It splits `Resources/AppIcon.svg` into trackpad, arc and hand layers for the hero animation and takes the icon and settings screenshots from `docs/media`. Absolute URLs appear only in canonical, hreflang, Open Graph, structured data and the sitemap; they come from `SITE_URL`, which the workflow sets to the address Pages reports, so they switch to a custom domain by themselves. `.github/workflows/pages.yml` deploys on pushes to `main` that touch these inputs; Pages publishes from GitHub Actions (`gh api -X POST repos/heruoxin/FingerChord.app/pages -f build_type=workflow`).
+
+For the custom domain `fingerchord.catchingnow.com`: verify `catchingnow.com` under the account’s Settings → Pages and enter the domain under the repository’s Settings → Pages first, then add a proxied Cloudflare CNAME to `heruoxin.github.io` with SSL/TLS set to Full, and run the workflow once so the absolute URLs pick up the domain. GitHub redirects the `github.io` address to it.
+
 ## Verification log
 
 ### 1.3.0 — 2026-11-23
@@ -105,6 +121,8 @@ macOS 27.2.1 (26B131), Apple Silicon, built-in Force Touch trackpad, Developer I
 | Window close / ⌘W / Hide | Fresh `--relaunch` instance within ~300 ms, one process, click tap live |
 | Quit with settings open | Quit button and Apple Event quit exit without relaunching |
 | Installed copies | `install.sh` leaves one bundle; Spotlight and LaunchServices list only `/Applications/FingerChord.app` |
+| DMG | Notarization accepted and stapled; with a quarantine flag, `spctl` accepts the image and the app inside as Notarized Developer ID |
+| Website | 1440 and 390 px wide in three languages, from a file and from a subpath; no overflow, no console errors |
 
 Still needs fingers on hardware: middle taps after a scroll with the new stillness rule, presses, sleep / wake, lock / unlock and a Bluetooth trackpad.
 
