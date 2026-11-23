@@ -23,6 +23,6 @@
 "error.framework" = "无法加载触控板接口";
 "error.symbol" = "不支持此版本的 macOS";
 "error.device" = "未找到触控板";
-"error.deviceStart" = "触控板未能启动";
+"error.deviceStart" = "无法启动触控板监听";
 "menu.settings" = "设置…";
 "menu.close" = "关闭窗口";

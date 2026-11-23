@@ -1,260 +1,230 @@
 {
   "zh-Hans": {
     "brand": "指间",
-    "title": "指间 · Mac 触控板手势，把手指组合变成快捷键",
-    "description": "指间是 macOS 27 的触控板手势工具：指间轻点发送 ⌘ 点按，三指点按关闭窗口，四指点按退出 App。常驻后台，不联网，免费开源。",
+    "title": "指间 · Mac 触控板手势工具：⌘ 点按、⌘W 与 ⌘Q",
+    "description": "macOS 27 触控板手势工具：指间轻点发送 ⌘ 点按，三指点按关闭窗口（⌘W），四指点按退出 App（⌘Q）。后台常驻，不联网，免费开源。",
     "skip": "跳到正文",
     "home": "指间首页",
     "download": "下载",
-    "downloadSmall": "免费下载",
-    "downloadStrong": "Mac 版",
-    "requirement": "需要 macOS 27",
-    "source": "源代码",
+    "downloadMac": "下载 Mac 版",
+    "requirement": "需要 macOS 27 · 免费开源",
     "changelog": "更新记录",
     "headline": [
-      "手指组合",
-      "就是快捷键"
+      "把三个快捷键",
+      "放到触控板上"
     ],
     "intro": [
-      "三个手势，三个快捷键。",
-      "常驻后台，不占 Dock 和菜单栏。"
+      "⌘ 点按、关闭窗口、退出 App，不用再伸手按键盘。",
+      "常驻后台，没有 Dock 和菜单栏图标。"
     ],
     "gestures": [
       {
         "name": "指间轻点",
         "action": "⌘ 点按",
-        "body": "食指、无名指放稳，中指在两指之间轻点。链接在新标签页打开，访达里逐个多选。两指不抬，可以连续点。",
-        "demo": "两指放在触控板上，中指在中间轻点两下，发出 ⌘ 点按。"
+        "body": "食指和无名指先放好，中指在两指之间轻点，触发 ⌘ 点按，每次轻点有一次触觉反馈。可以在新标签页打开链接，或在访达里逐个多选文件；两指不用抬起，可以连续轻点。",
+        "demo": "食指和无名指放在触控板上，中指在两指之间轻点两下，发送 ⌘ 点按。"
       },
       {
         "name": "三指点按",
         "action": "⌘W",
-        "body": "三指按下触控板，关闭当前窗口或标签页。",
-        "demo": "三指同时按下触控板，发出 ⌘W。"
+        "body": "三指一起按下触控板，关闭当前窗口或标签页。要真正按下去才会触发，触控板原本的按压手感不变。",
+        "demo": "三指同时按下触控板，发送 ⌘W。"
       },
       {
         "name": "四指点按",
         "action": "⌘Q",
-        "body": "四指按下触控板，退出当前 App。",
-        "demo": "四指同时按下触控板，发出 ⌘Q。"
+        "body": "四指一起按下触控板，退出当前 App。担心误触的话，可以在设置里单独关掉。",
+        "demo": "四指同时按下触控板，发送 ⌘Q。"
       }
     ],
     "quietTitle": [
-      "设置只有一页",
-      "关上就在后台"
+      "一页设置",
+      "关掉就留在后台"
     ],
-    "quietBody": "每个手势可以单独关闭。关上窗口，指间留在后台，没有 Dock 和菜单栏图标，空闲时 CPU 0%，内存约 10 MB。它不联网，不读取键盘输入和窗口内容。",
+    "quietBody": "设置窗口在前台时，手势只在上方的触控板预览里显示，不会真的发出去，可以先试试手感。三个手势都能单独开关。关掉窗口后指间留在后台，空闲时 CPU 0%、内存约 10 MB，不联网，也不读取键盘输入和窗口内容。要改设置，再打开一次 App。",
     "screenshotAlt": "指间的设置窗口",
     "helpTitle": "常见问题",
     "helpItems": [
       {
-        "question": "怎么安装？",
-        "answer": "下载 DMG，把指间拖进「应用程序」并打开。按提示在 系统设置 → 隐私与安全性 里打开「辅助功能」和「输入监控」。"
+        "question": "为什么需要「辅助功能」和「输入监控」权限？",
+        "answer": "识别触控板点按并代你发送快捷键，macOS 要求这两项权限。下载经过 Apple 公证的 DMG，把指间拖进「应用程序」启动后，按提示在 系统设置 → 隐私与安全性 里打开即可。所有处理都在本机完成，不联网，也不读取键盘输入和窗口内容。"
       },
       {
-        "question": "为什么要这两项权限？",
-        "answer": "指间要识别触控板点按并代你发送快捷键，系统要求这两项权限。手势只在本机识别，不联网，不读取键盘输入和窗口内容。"
+        "question": "打开后在 Dock 和菜单栏都找不到它？",
+        "answer": "指间不放任何常驻图标。要回到设置或退出，从「应用程序」或聚焦搜索里再打开一次指间。"
       },
       {
-        "question": "打开后找不到它？",
-        "answer": "指间没有 Dock 和菜单栏图标。再次打开 App 就回到设置，退出也在设置里。"
+        "question": "设置窗口开着时，做手势为什么没反应？",
+        "answer": "设置窗口在前台时，手势只显示在触控板预览里，不会发出去，不然三指、四指点按会直接把设置窗口关掉。切到别的 App 或关掉设置窗口就生效。"
       },
       {
-        "question": "设置窗口开着时手势没反应？",
-        "answer": "设置窗口在前台时，手势只显示在触控板预览里，不会发送。切到别的 App 就会生效。"
+        "question": "会拖慢平时的点按吗？",
+        "answer": "单指和双指点按完全不延迟。只有三指以上、可能构成手势的点按会最多等 80 毫秒确认，不是手势就照常放行。"
       },
       {
-        "question": "会拖慢普通点按吗？",
-        "answer": "只有三指以上、可能构成手势的点按会稍等，最多 80 毫秒，不是手势就照常放行。"
+        "question": "支持哪些 Mac 和触控板？",
+        "answer": "只支持 macOS 27。目前只在 Apple 芯片 Mac 的内置触控板上实测过，妙控板还没测过。指间依赖私有的 MultitouchSupport 接口，以后 macOS 更新可能需要跟着适配。"
       },
       {
-        "question": "用的不是美式键盘布局？",
-        "answer": "快捷键按美式布局的键位发送。用其他布局时，⌘W 和 ⌘Q 可能对应别的字符。"
-      },
-      {
-        "question": "支持哪些 Mac？",
-        "answer": "需要 macOS 27，已在 Apple 芯片 Mac 的内置触控板上实测，外接妙控板尚未验证。指间依赖私有的 MultitouchSupport 接口，系统更新后可能需要适配。"
-      },
-      {
-        "question": "收费吗？",
-        "answer": "免费。代码以 GPLv3 在 GitHub 开源，欢迎提交问题和改进。"
+        "question": "非美式键盘布局能用吗？",
+        "answer": "⌘ 点按不受影响，但 ⌘W 和 ⌘Q 按美式布局的键位发送。用其他布局时，这两个组合键可能对应到别的字符。"
       }
     ],
     "closingTitle": [
-      "多一根手指",
-      "少按一次键"
+      "在触控板上",
+      "试试这三个手势"
     ]
   },
   "en": {
     "brand": "FingerChord",
-    "title": "FingerChord · Mac trackpad gestures that send shortcuts",
-    "description": "FingerChord is a trackpad gesture tool for macOS 27. Tap between two fingers for ⌘-click, click with three fingers to close a window, with four to quit an app. It runs in the background, works offline, and is free and open source.",
+    "title": "FingerChord — ⌘-click, ⌘W, and ⌘Q on your Mac trackpad",
+    "description": "A free, open-source trackpad tool for macOS 27: tap between two fingers to ⌘-click, click with three fingers to close a window (⌘W), click with four to quit (⌘Q). Runs offline in the background with no Dock or menu bar icon.",
     "skip": "Skip to content",
     "home": "FingerChord home",
     "download": "Download",
-    "downloadSmall": "Free download",
-    "downloadStrong": "for Mac",
-    "requirement": "Requires macOS 27",
-    "source": "Source code",
+    "downloadMac": "Download for Mac",
+    "requirement": "Requires macOS 27 · Free and open source",
     "changelog": "Changelog",
     "headline": [
-      "Trackpad gestures",
-      "that send shortcuts"
+      "⌘-click, ⌘W, ⌘Q",
+      "from your trackpad"
     ],
     "intro": [
-      "Three gestures, three shortcuts.",
-      "No Dock or menu bar icon."
+      "Three trackpad gestures for macOS 27.",
+      "Runs in the background with no Dock or menu bar icon."
     ],
     "gestures": [
       {
-        "name": "Tap between",
+        "name": "Tap between fingers",
         "action": "⌘-click",
-        "body": "Rest your index and ring fingers, then tap your middle finger between them. Links open in a new tab, and Finder adds files to the selection. Keep both fingers down to tap again.",
-        "demo": "Two fingers rest on the trackpad while the middle finger taps twice between them, sending ⌘-click."
+        "body": "Rest your index and ring fingers on the trackpad, then tap your middle finger between them to ⌘-click. Each tap gives a single haptic pulse. Open links in new tabs or select multiple files in Finder; keep the outer fingers down to tap again.",
+        "demo": "Index and ring fingers rest on the trackpad while the middle finger taps twice between them, sending ⌘-click."
       },
       {
-        "name": "Three finger click",
+        "name": "Three-finger click",
         "action": "⌘W",
-        "body": "Click the trackpad with three fingers to close the window or tab.",
+        "body": "Click the trackpad with three fingers to close the active window or tab. It takes a real press, and the trackpad keeps its usual click feel.",
         "demo": "Three fingers click the trackpad together, sending ⌘W."
       },
       {
-        "name": "Four finger click",
+        "name": "Four-finger click",
         "action": "⌘Q",
-        "body": "Click with four fingers to quit the app.",
+        "body": "Click with four fingers to quit the frontmost app. If you’d rather not risk quitting by accident, turn this one off in settings.",
         "demo": "Four fingers click the trackpad together, sending ⌘Q."
       }
     ],
     "quietTitle": [
-      "One page of settings,",
-      "then out of sight"
+      "Set it once,",
+      "close the window"
     ],
-    "quietBody": "Turn each gesture on or off. Close the window and FingerChord keeps running with no Dock or menu bar icon, idling at 0% CPU and about 10 MB of memory. It never goes online and never reads keystrokes or window contents.",
+    "quietBody": "While this window is in front, gestures show up in the trackpad preview instead of firing, so you can try them safely. Each gesture has its own switch. Close the window and FingerChord keeps running in the background at 0% CPU when idle and about 10 MB of memory. It stays offline and never reads keystrokes or window contents. Open the app again to get back to settings.",
     "screenshotAlt": "FingerChord settings window",
     "helpTitle": "Questions",
     "helpItems": [
       {
-        "question": "How do I install it?",
-        "answer": "Download the DMG, drag FingerChord to Applications and open it. When asked, turn on Accessibility and Input Monitoring in System Settings → Privacy & Security."
+        "question": "Why does it need Accessibility and Input Monitoring?",
+        "answer": "macOS requires both for an app that watches trackpad clicks and sends shortcuts. Download the notarized DMG, drag FingerChord into Applications, open it, and follow the prompts to turn both on in System Settings → Privacy & Security. Everything happens on your Mac; it never goes online or reads keystrokes or window contents."
       },
       {
-        "question": "Why does it need these permissions?",
-        "answer": "macOS requires both for an app that recognises trackpad clicks and sends shortcuts for you. Gestures are recognised on your Mac; FingerChord never goes online and never reads keystrokes or window contents."
+        "question": "Where is it after I close settings?",
+        "answer": "FingerChord stays out of the Dock and menu bar. To get back to settings or quit, open FingerChord again from Applications or Spotlight."
       },
       {
-        "question": "I opened it. Where is it?",
-        "answer": "FingerChord has no Dock or menu bar icon. Open the app again to get back to settings, where you can also quit it."
-      },
-      {
-        "question": "Gestures do nothing while settings are open?",
-        "answer": "While the settings window is in front, gestures only show in the trackpad preview. Switch to another app and they work."
+        "question": "Why don’t gestures work while settings are open?",
+        "answer": "When the settings window is in front, gestures only show in the preview, so a three- or four-finger click doesn’t close the window you’re testing in. Switch to another app or close the window and they work normally."
       },
       {
         "question": "Does it slow down normal clicks?",
-        "answer": "Only a click with three or more fingers, which might become a gesture, waits, at most 80 ms, and then passes through if it isn’t one."
+        "answer": "One- and two-finger clicks are never delayed. Clicks with three or more fingers wait up to 80 ms to check for a gesture, then go through as usual if they aren’t one."
       },
       {
-        "question": "I don’t use a US keyboard layout.",
-        "answer": "Shortcuts are sent by US layout key position, so with another layout ⌘W and ⌘Q may land on different characters."
+        "question": "Which Macs and trackpads are supported?",
+        "answer": "macOS 27 only. It has been tested on the built-in trackpad of Apple silicon Macs; the Magic Trackpad is untested. It relies on the private MultitouchSupport interface, so future macOS updates may need an app update."
       },
       {
-        "question": "Which Macs are supported?",
-        "answer": "macOS 27 is required. It is tested on the built-in trackpad of Apple silicon Macs; the Magic Trackpad is untested. FingerChord relies on the private MultitouchSupport interface, so system updates may need a new version."
-      },
-      {
-        "question": "Does it cost anything?",
-        "answer": "No. The code is open source under GPLv3 on GitHub. Issues and improvements are welcome."
+        "question": "What if I don’t use a US keyboard layout?",
+        "answer": "⌘-click works with any layout, but ⌘W and ⌘Q are sent by US key position. On other layouts those keys may type different characters."
       }
     ],
     "closingTitle": [
-      "One more finger,",
-      "one less keystroke"
+      "Give it a try",
+      "on your trackpad"
     ]
   },
   "zh-Hant": {
     "brand": "指間",
-    "title": "指間 · Mac 觸控式軌跡板手勢，把手指組合變成快速鍵",
-    "description": "指間是 macOS 27 的觸控式軌跡板手勢工具：指間點一下送出 ⌘ 按一下，三指按一下關閉視窗，四指按一下結束 App。常駐背景執行，不連網，免費開源。",
-    "skip": "跳到內文",
+    "title": "指間 · Mac 觸控式軌跡板手勢工具：⌘ 按一下、⌘W 與 ⌘Q",
+    "description": "macOS 27 專用的觸控式軌跡板手勢工具：指間點一下送出 ⌘ 按一下，三指按一下關閉視窗（⌘W），四指按一下結束 App（⌘Q）。背景常駐，不連網，免費開源。",
+    "skip": "跳到主要內容",
     "home": "指間首頁",
     "download": "下載",
-    "downloadSmall": "免費下載",
-    "downloadStrong": "Mac 版",
-    "requirement": "需要 macOS 27",
-    "source": "原始碼",
-    "changelog": "更新記錄",
+    "downloadMac": "下載 Mac 版",
+    "requirement": "需要 macOS 27 · 免費開源",
+    "changelog": "更新紀錄",
     "headline": [
-      "手指組合",
-      "就是快速鍵"
+      "用觸控式軌跡板",
+      "送出三個快速鍵"
     ],
     "intro": [
-      "三個手勢，三個快速鍵。",
-      "常駐背景，不佔 Dock 和選單列。"
+      "⌘ 按一下、關閉視窗、結束 App，不必再伸手按鍵盤。",
+      "常駐背景執行，沒有 Dock 和選單列圖像。"
     ],
     "gestures": [
       {
         "name": "指間點一下",
         "action": "⌘ 按一下",
-        "body": "食指、無名指放穩，中指在兩指之間點一下。連結會在新分頁打開，Finder 裡可以逐一多選。兩指不抬起，可以連續點。",
-        "demo": "兩指放在觸控式軌跡板上，中指在中間點兩下，送出 ⌘ 按一下。"
+        "body": "先把食指和無名指放在觸控式軌跡板上，中指在兩指之間點一下，就會送出 ⌘ 按一下，並有一次觸覺回饋。可以在新分頁開啟連結，或在 Finder 裡逐一多選檔案；兩指不用抬起來，可以連續點。",
+        "demo": "食指和無名指放在觸控式軌跡板上，中指在兩指之間點兩下，送出 ⌘ 按一下。"
       },
       {
         "name": "三指按一下",
         "action": "⌘W",
-        "body": "三指按下觸控式軌跡板，關閉目前的視窗或分頁。",
+        "body": "三指同時按下觸控式軌跡板，關閉目前的視窗或分頁。要實際壓下去才會觸發，原本的按壓手感不變。",
         "demo": "三指同時按下觸控式軌跡板，送出 ⌘W。"
       },
       {
         "name": "四指按一下",
         "action": "⌘Q",
-        "body": "四指按下觸控式軌跡板，結束目前的 App。",
+        "body": "四指同時按下觸控式軌跡板，結束目前的 App。擔心誤觸的話，可以在設定裡單獨關閉。",
         "demo": "四指同時按下觸控式軌跡板，送出 ⌘Q。"
       }
     ],
     "quietTitle": [
-      "設定只有一頁",
-      "關上就在背景"
+      "一頁設定",
+      "關閉就留在背景"
     ],
-    "quietBody": "每個手勢都能單獨關閉。關上視窗，指間留在背景，沒有 Dock 和選單列圖像，閒置時 CPU 0%，記憶體約 10 MB。它不連網，不讀取鍵盤輸入和視窗內容。",
+    "quietBody": "設定視窗在最前方時，手勢只會顯示在上方的觸控式軌跡板預覽區，不會真的送出，可以先試試手感。三個手勢都能個別開關。關閉視窗後指間會留在背景執行，閒置時 CPU 0%、記憶體約 10 MB，不連網，也不讀取鍵盤輸入或視窗內容。要調整設定，再打開一次 App 即可。",
     "screenshotAlt": "指間的設定視窗",
     "helpTitle": "常見問題",
     "helpItems": [
       {
-        "question": "怎麼安裝？",
-        "answer": "下載 DMG，把指間拖進「應用程式」並打開。依照提示在 系統設定 → 隱私權與安全性 裡打開「輔助使用」和「輸入監控」。"
+        "question": "為什麼需要「輔助使用」和「輸入監控」權限？",
+        "answer": "要偵測觸控式軌跡板操作並代你送出快速鍵，macOS 規定必須開啟這兩項權限。下載經 Apple 公證的 DMG，把指間拖進「應用程式」後啟動，照畫面提示到 系統設定 → 隱私權與安全性 開啟即可。所有辨識都在本機完成，不連網，也不讀取鍵盤輸入或視窗內容。"
       },
       {
-        "question": "為什麼需要這兩項權限？",
-        "answer": "指間要辨識觸控式軌跡板的按一下並代你送出快速鍵，系統要求這兩項權限。手勢只在本機辨識，不連網，不讀取鍵盤輸入和視窗內容。"
+        "question": "打開後在 Dock 和選單列都找不到？",
+        "answer": "指間不顯示任何常駐圖像。想回到設定或結束 App，從「應用程式」或 Spotlight 再打開一次指間就行。"
       },
       {
-        "question": "打開後找不到它？",
-        "answer": "指間沒有 Dock 和選單列圖像。再次打開 App 就回到設定，結束也在設定裡。"
+        "question": "設定視窗開著時，做手勢怎麼沒反應？",
+        "answer": "設定視窗在最前方時，手勢只會顯示在預覽區裡，不會真的送出，免得一試三指或四指就把視窗關掉。切換到其他 App 或關閉設定視窗就會生效。"
       },
       {
-        "question": "設定視窗開著時手勢沒反應？",
-        "answer": "設定視窗在最前方時，手勢只會顯示在觸控式軌跡板預覽裡，不會送出。切換到其他 App 就會生效。"
+        "question": "平常按觸控式軌跡板會變慢嗎？",
+        "answer": "單指和雙指按一下完全不延遲。只有三指以上按下、可能構成手勢時，才會等最多 80 毫秒確認，不是手勢就照常處理。"
       },
       {
-        "question": "會拖慢一般的按一下嗎？",
-        "answer": "只有三指以上、可能構成手勢的按一下會稍等，最多 80 毫秒，不是手勢就照常放行。"
+        "question": "支援哪些 Mac 和觸控式軌跡板？",
+        "answer": "僅支援 macOS 27。目前只在 Apple 晶片 Mac 的內建觸控式軌跡板上實測過，巧控板尚未驗證。指間依賴私有的 MultitouchSupport 介面，未來系統更新後可能需要配合調整。"
       },
       {
-        "question": "用的不是美式鍵盤配置？",
-        "answer": "快速鍵依美式配置的按鍵位置送出。使用其他配置時，⌘W 和 ⌘Q 可能對應到別的字元。"
-      },
-      {
-        "question": "支援哪些 Mac？",
-        "answer": "需要 macOS 27，已在 Apple 晶片 Mac 的內建觸控式軌跡板上實測，巧控板尚未驗證。指間依賴私有的 MultitouchSupport 介面，系統更新後可能需要調整。"
-      },
-      {
-        "question": "要付費嗎？",
-        "answer": "免費。程式碼以 GPLv3 在 GitHub 開源，歡迎回報問題和提交改進。"
+        "question": "不是用美式鍵盤配置會受影響嗎？",
+        "answer": "⌘ 按一下不受影響，但 ⌘W 和 ⌘Q 是依美式配置的按鍵位置送出。使用其他鍵盤配置時，這兩個組合鍵可能會對應到不同的字元。"
       }
     ],
     "closingTitle": [
-      "多一根手指",
-      "少按一次鍵"
+      "在觸控式軌跡板上",
+      "試試這三個手勢"
     ]
   }
 }

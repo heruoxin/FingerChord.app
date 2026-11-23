@@ -4,7 +4,6 @@
 from copy import deepcopy
 import html
 import json
-import os
 from pathlib import Path
 import plistlib
 import re
@@ -14,14 +13,14 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'site'
-# Pages passes its live address, so absolute URLs follow a custom domain once one is set.
-URL = os.environ.get('SITE_URL', 'https://heruoxin.github.io/FingerChord.app/')
+URL = 'https://fingerchord.catchingnow.com/'
 REPO = 'https://github.com/heruoxin/FingerChord.app'
 DOWNLOAD = f'{REPO}/releases/latest/download/FingerChord.dmg'
 LANGUAGES = {'zh-Hans': '简体中文', 'en': 'English', 'zh-Hant': '繁體中文'}
 OG_LOCALES = {'zh-Hans': 'zh_CN', 'en': 'en_US', 'zh-Hant': 'zh_TW'}
 SVG = '{http://www.w3.org/2000/svg}'
 APPLE = ('<svg viewBox="0 0 24 28" aria-hidden="true"><path fill="currentColor" d="M18.9 14.6c0-3 2.5-4.5 2.6-4.6-1.4-2.1-3.6-2.4-4.4-2.4-1.9-.2-3.7 1.1-4.7 1.1-1 0-2.5-1.1-4.1-1.1-2.1 0-4 1.2-5.1 3-2.2 3.7-.6 9.1 1.5 12.1 1 1.5 2.2 3.1 3.8 3 1.5-.1 2.1-1 4-1s2.4 1 4.1.9c1.7 0 2.8-1.5 3.8-3 1.2-1.7 1.7-3.4 1.7-3.5-.1 0-3.2-1.2-3.2-4.5ZM15.7 5.7c.9-1.1 1.5-2.6 1.3-4.1-1.3.1-2.9.9-3.8 2-.8.9-1.6 2.5-1.4 4 1.5.1 3-.7 3.9-1.9Z"/></svg>')
+GITHUB = ('<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>')
 # Fingertips on a 480 × 300 trackpad, in the order index, middle, ring, little.
 FINGERS = {
     'tap': [(178, 150, 'rest'), (240, 126, 'tap'), (302, 148, 'rest')],
@@ -69,9 +68,10 @@ def icon_layers(output):
 
 
 def download_button(content, version):
-    return (f'<div class="download"><a class="download-button" href="{DOWNLOAD}">{APPLE}'
-            f'<span><small>{esc(content["downloadSmall"])}</small><strong>{esc(content["downloadStrong"])}</strong></span></a>'
-            f'<p class="download-meta">{version} · {esc(content["requirement"])} · <a href="{REPO}">{esc(content["source"])}</a></p></div>')
+    return (f'<div class="download"><div class="download-actions">'
+            f'<a class="download-button" href="{DOWNLOAD}">{APPLE}{esc(content["downloadMac"])}</a>'
+            f'<a class="github-button" href="{REPO}">{GITHUB}GitHub</a></div>'
+            f'<p class="download-meta">{version} · {esc(content["requirement"])}</p></div>')
 
 
 def gesture_section(index, gesture):

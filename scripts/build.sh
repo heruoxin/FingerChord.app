@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "${0:A:h:h}"
 
-swift build -c release
+swift build -c release -Xlinker -S
 binary_dir=$(swift build -c release --show-bin-path)
 mkdir -p dist
 staging=$(mktemp -d "$PWD/.build/package.XXXXXX")

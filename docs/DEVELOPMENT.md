@@ -89,6 +89,8 @@ The offscreen render draws switches in their inactive-window style.
 
 `./scripts/package-release.sh` builds with a secure timestamp, lays the app out over `Resources/DMGBackground.png` (rendered by `make-icon.sh`), signs the image with Developer ID, notarizes it with the keychain profile `FingerChord` and staples the ticket. Credentials never enter the repository; `xcrun notarytool store-credentials FingerChord` saves them once per Mac. The asset keeps one name across versions, so README and website link to `releases/latest/download/FingerChord.dmg`.
 
+Neither file carries local paths: the linker drops the debug map (`-Xlinker -S`), and the image is assembled under `/tmp` because Finder stores the path of the working image in the background alias of `.DS_Store`.
+
 ```sh
 ./scripts/package-release.sh
 spctl -a -t open --context context:primary-signature -vv dist/FingerChord.dmg   # source=Notarized Developer ID
@@ -97,15 +99,15 @@ gh release create v1.3.0 dist/FingerChord.dmg dist/FingerChord.dmg.sha256 --titl
 
 ## Website
 
-`site/` holds the template, copy in three languages, CSS and JS. `scripts/build-site.py` writes a static site to `.build/site` with `zh-Hans` at the root plus `en/` and `zh-Hant/`, using relative links only, so it works opened as a file, under the GitHub Pages subpath and on a custom domain. It splits `Resources/AppIcon.svg` into trackpad, arc and hand layers for the hero animation and takes the icon and settings screenshots from `docs/media`. Absolute URLs appear only in canonical, hreflang, Open Graph, structured data and the sitemap; they come from `SITE_URL`, which the workflow sets to the address Pages reports, so they switch to a custom domain by themselves. `.github/workflows/pages.yml` deploys on pushes to `main` that touch these inputs; Pages publishes from GitHub Actions (`gh api -X POST repos/heruoxin/FingerChord.app/pages -f build_type=workflow`).
+`site/` holds the template, copy in three languages, CSS and JS. `scripts/build-site.py` writes a static site to `.build/site` with `zh-Hans` at the root plus `en/` and `zh-Hant/`, using relative links only, so it works opened as a file, under the GitHub Pages subpath and on the custom domain. It splits `Resources/AppIcon.svg` into trackpad, arc and hand layers for the hero animation and takes the icon and settings screenshots from `docs/media`. Absolute URLs appear only in canonical, hreflang, Open Graph, structured data and the sitemap, all under `https://fingerchord.catchingnow.com/`. `.github/workflows/pages.yml` deploys on pushes to `main` that touch these inputs; Pages publishes from GitHub Actions (`gh api -X POST repos/heruoxin/FingerChord.app/pages -f build_type=workflow`).
 
-For the custom domain `fingerchord.catchingnow.com`: verify `catchingnow.com` under the account’s Settings → Pages and enter the domain under the repository’s Settings → Pages first, then add a proxied Cloudflare CNAME to `heruoxin.github.io` with SSL/TLS set to Full, and run the workflow once so the absolute URLs pick up the domain. GitHub redirects the `github.io` address to it.
+`catchingnow.com` is verified under the account’s Settings → Pages, and the repository serves `fingerchord.catchingnow.com`; `heruoxin.github.io/FingerChord.app/` redirects there. Cloudflare proxies a CNAME to `heruoxin.github.io`. Add the domain in GitHub while the record is DNS only, so GitHub can check it and issue its certificate, then turn the proxy on. Behind the proxy, either set SSL/TLS to Full for this host and keep Enforce HTTPS on, or keep Flexible with Enforce HTTPS off: Flexible fetches the origin over HTTP, and GitHub’s redirect to HTTPS then loops.
 
 ## Verification log
 
 ### 1.3.0 — 2026-11-23
 
-macOS 27.2.1 (26B131), Apple Silicon, built-in Force Touch trackpad, Developer ID build.
+macOS 27.2.1 (26B131), Apple silicon, built-in Force Touch trackpad, Developer ID build.
 
 | Check | Result |
 | --- | --- |

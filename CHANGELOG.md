@@ -2,18 +2,18 @@
 
 ## 1.3.0 — 2026-11-23
 
-- New icon: a frosted glass hand on a trackpad, the middle finger tapping.
-- Redesigned settings: one column, a fingertip diagram per gesture, no descriptions. Gestures are previewed instead of sent while the window is in front, which replaces test mode.
-- Rewritten copy in all three languages, using the system’s own terms for click and tap.
-- Scrolls are no longer tapped, drags only while a click is held, and single-finger pointer frames are dropped before Swift. Middle taps detect a moving pair from contact motion.
-- Closing settings hands over to a fresh background process, returning to about 10 MB instead of keeping ~28 MB.
-- Monitoring stops entirely when every gesture is off.
-- `install.sh` moves the build into Applications, so no second copy stays in `dist` for Spotlight to list.
-- Downloads as a notarized DMG. The website runs on GitHub Pages in three languages.
+- New icon: a frosted-glass hand on a trackpad, tapping with the middle finger.
+- Redesigned settings: one column with a fingertip diagram for each gesture and no descriptions. While the window is in front, gestures are previewed instead of sent, which replaces test mode.
+- Rewrote the copy in all three languages, using each system’s own terms for click and tap.
+- Removed the scroll event tap; tap between fingers now recognizes a scrolling pair from touch motion. The drag event tap stays off unless a click is buffered or swallowed, and single-finger pointer frames are dropped in C before reaching Swift.
+- Closing settings hands off to a fresh background process, bringing memory back to about 10 MB instead of keeping ~28 MB.
+- Trackpad and event monitoring stop completely when every gesture is off.
+- `install.sh` moves the build into Applications instead of copying it, so Spotlight no longer finds a second copy in `dist`.
+- Releases ship as a notarized DMG, and the website is live in three languages.
 
 ## 1.2.0 — 2026-11-23
 
-- One and two finger trackpad clicks are no longer delayed; only clicks with three or more contacts wait for the physical button.
+- One- and two-finger trackpad clicks are no longer delayed; only clicks with three or more contacts wait for the physical button.
 - A physical press whose system click already reached an app stays a plain click and no longer also sends ⌘W / ⌘Q.
 - No polling: monitoring reacts to leaving System Settings, screen lock, sleep / wake, session and multitouch device notifications. Trackpads connected while running are picked up immediately.
 - Scrolls are observed through a listen-only tap and never wait for the app.

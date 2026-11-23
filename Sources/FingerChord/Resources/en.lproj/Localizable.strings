@@ -6,9 +6,9 @@
 "allow" = "Allow…";
 "preview.placeholder" = "Try a gesture";
 "preview.ax" = "Trackpad, %ld contacts";
-"gesture.middleTap" = "Tap between";
-"gesture.threePress" = "Three finger click";
-"gesture.fourPress" = "Four finger click";
+"gesture.middleTap" = "Tap between fingers";
+"gesture.threePress" = "Three-finger click";
+"gesture.fourPress" = "Four-finger click";
 "action.middleTap" = "⌘-click";
 "action.threePress" = "⌘W";
 "action.fourPress" = "⌘Q";
@@ -18,11 +18,11 @@
 "quit" = "Quit FingerChord";
 "hide" = "Hide";
 "status.connecting" = "Connecting to trackpad…";
-"error.tap" = "Can’t watch clicks";
+"error.tap" = "Can’t monitor clicks";
 "error.button" = "Can’t read trackpad clicks";
 "error.framework" = "Can’t load the trackpad interface";
 "error.symbol" = "This version of macOS isn’t supported";
 "error.device" = "No trackpad found";
-"error.deviceStart" = "Trackpad didn’t start";
+"error.deviceStart" = "Couldn’t connect to trackpad";
 "menu.settings" = "Settings…";
 "menu.close" = "Close Window";
